@@ -11,23 +11,17 @@ import (
 )
 
 type WebSocketServer struct {
-	logger     *zap.Logger
-	upgrader   *websocket.Upgrader
-	rpcHandler *RPCHandler
-	rpcLogger  *RPCLogger
+	logger   *zap.Logger
+	upgrader *websocket.Upgrader
 }
 
 func NewWebSocketServer(
 	logger *zap.Logger,
 	upgrader *websocket.Upgrader,
-	rpcHandler *RPCHandler,
-	rpcLogger *RPCLogger,
 ) *WebSocketServer {
 	return &WebSocketServer{
 		logger,
 		upgrader,
-		rpcHandler,
-		rpcLogger,
 	}
 }
 
@@ -45,11 +39,13 @@ func (s *WebSocketServer) Register(ctx context.Context, mux *http.ServeMux) erro
 
 		conn.SetReadLimit(1024)
 
+		jsonrpcHandler := NewRPCHandler(s.logger.With(zap.String("clientIp", "FIX-ME-CLIENT-IP")))
+
 		jsonrpcConn := jsonrpc2.NewConn(
 			ctx,
 			NewWebSocketObjectStream(conn),
-			s.rpcHandler,
-			jsonrpc2.SetLogger(s.rpcLogger),
+			jsonrpcHandler,
+			jsonrpc2.SetLogger(jsonrpcHandler),
 		)
 
 		<-jsonrpcConn.DisconnectNotify()

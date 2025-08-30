@@ -30,9 +30,7 @@ func NewApp(logger *zap.Logger) *App {
 		CheckOrigin:       originChecker.Check,
 		EnableCompression: true,
 	}
-	rpcHandler := server.NewRPCHandler(logger)
-	rpcLogger := server.NewRPCLogger(logger)
-	websocketServer := server.NewWebSocketServer(logger, websocketUpgrader, rpcHandler, rpcLogger)
+	websocketServer := server.NewWebSocketServer(logger, websocketUpgrader)
 
 	return &App{
 		logger,
