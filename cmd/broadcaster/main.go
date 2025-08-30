@@ -25,11 +25,14 @@ type App struct {
 func NewApp(logger *zap.Logger) *App {
 	originChecker := server.NewOriginChecker()
 	websocketUpgrader := &websocket.Upgrader{
-		ReadBufferSize:  1024,
-		WriteBufferSize: 1024,
-		CheckOrigin:     originChecker.Check,
+		ReadBufferSize:    1024,
+		WriteBufferSize:   1024,
+		CheckOrigin:       originChecker.Check,
+		EnableCompression: true,
 	}
-	websocketServer := server.NewWebSocketServer(logger, websocketUpgrader)
+	rpcHandler := server.NewRPCHandler(logger)
+	rpcLogger := server.NewRPCLogger(logger)
+	websocketServer := server.NewWebSocketServer(logger, websocketUpgrader, rpcHandler, rpcLogger)
 
 	return &App{
 		logger,
@@ -44,7 +47,7 @@ func (a *App) startHttpServer(ctx context.Context) {
 	address := fmt.Sprintf("0.0.0.0:%d", 8000)
 
 	mux := http.NewServeMux()
-	err := a.websocketServer.Register(mux)
+	err := a.websocketServer.Register(ctx, mux)
 	if err != nil {
 		a.logger.Fatal("failed to register websocket server",
 			zap.Error(err))
@@ -86,7 +89,7 @@ func (a *App) startHttpServer(ctx context.Context) {
 func main() {
 	ctx := context.Background()
 
-	logger, _ := zap.NewProduction()
+	logger, _ := zap.NewDevelopment()
 	defer logger.Sync()
 
 	app := NewApp(logger)

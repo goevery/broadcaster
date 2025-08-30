@@ -102,19 +102,31 @@
           <template x-for="(message, index) in messages" :key="index">
             <div
               class="mb-3 p-3 rounded-lg"
-              :class="message.type === 'sent' ? 'bg-blue-100 ml-8' : 'bg-green-100 mr-8'"
+              :class="{
+                'bg-blue-100 ml-8 border-l-4 border-blue-500': message.type === 'sent',
+                'bg-green-100 mr-8 border-l-4 border-green-500': message.type === 'received',
+                'bg-yellow-50 border border-yellow-300 mx-2': message.type === 'system'
+              }"
             >
               <div class="flex items-center justify-between mb-1">
                 <div class="flex items-center space-x-2">
                   <i
-                    :data-lucide="message.type === 'sent' ? 'arrow-up-right' : 'arrow-down-left'"
-                    :class="message.type === 'sent' ? 'text-blue-600' : 'text-green-600'"
+                    :data-lucide="message.type === 'sent' ? 'arrow-up-right' : message.type === 'received' ? 'arrow-down-left' : 'info'"
+                    :class="{
+                      'text-blue-600': message.type === 'sent',
+                      'text-green-600': message.type === 'received',
+                      'text-yellow-600': message.type === 'system'
+                    }"
                     class="w-4 h-4"
                   ></i>
                   <span
                     class="text-sm font-medium"
-                    :class="message.type === 'sent' ? 'text-blue-800' : 'text-green-800'"
-                    x-text="message.type === 'sent' ? 'Sent' : 'Received'"
+                    :class="{
+                      'text-blue-800': message.type === 'sent',
+                      'text-green-800': message.type === 'received',
+                      'text-yellow-800': message.type === 'system'
+                    }"
+                    x-text="message.type === 'sent' ? 'Sent' : message.type === 'received' ? 'Received' : 'System'"
                   ></span>
                 </div>
                 <span
@@ -123,7 +135,11 @@
                 ></span>
               </div>
               <div
-                class="text-gray-800 break-words"
+                class="break-words"
+                :class="{
+                  'text-gray-800': message.type === 'sent' || message.type === 'received',
+                  'text-yellow-900 font-medium': message.type === 'system'
+                }"
                 x-text="message.content"
               ></div>
             </div>
@@ -174,7 +190,6 @@
 
           toggleConnection() {
             if (this.connected) {
-              console.log("Disconnecting");
               this.disconnect();
             } else {
               this.connect();
@@ -216,6 +231,10 @@
             if (this.ws) {
               this.ws.close();
               this.ws = null;
+
+              this.connected = false;
+              this.addSystemMessage("Disconnected from WebSocket");
+              this.$nextTick(() => lucide.createIcons());
             }
           },
 
@@ -239,6 +258,8 @@
               type: type,
               timestamp: this.formatTimestamp(new Date()),
             });
+
+            this.$nextTick(() => lucide.createIcons());
           },
 
           addSystemMessage(content) {
