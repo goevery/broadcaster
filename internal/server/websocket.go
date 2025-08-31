@@ -13,22 +13,24 @@ import (
 type WebSocketServer struct {
 	logger   *zap.Logger
 	upgrader *websocket.Upgrader
+
+	rpcHandlerFactory *RPCHandlerFactory
 }
 
 func NewWebSocketServer(
 	logger *zap.Logger,
 	upgrader *websocket.Upgrader,
+	rpcHandlerFactory *RPCHandlerFactory,
 ) *WebSocketServer {
 	return &WebSocketServer{
 		logger,
 		upgrader,
+		rpcHandlerFactory,
 	}
 }
 
 func (s *WebSocketServer) Register(ctx context.Context, mux *http.ServeMux) error {
 	mux.HandleFunc("/websocket", func(w http.ResponseWriter, r *http.Request) {
-		s.logger.Info("websocket endpoint hit")
-
 		conn, err := s.upgrader.Upgrade(w, r, nil)
 		if err != nil {
 			log.Println(err)
@@ -39,7 +41,9 @@ func (s *WebSocketServer) Register(ctx context.Context, mux *http.ServeMux) erro
 
 		conn.SetReadLimit(1024)
 
-		jsonrpcHandler := NewRPCHandler(s.logger.With(zap.String("clientIp", "FIX-ME-CLIENT-IP")))
+		clientIp := "FIXME-CLIENT-IP"
+		handlerLogger := s.logger.With(zap.String("clientIp", clientIp))
+		jsonrpcHandler := s.rpcHandlerFactory.New(handlerLogger)
 
 		jsonrpcConn := jsonrpc2.NewConn(
 			ctx,

@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
+	"github.com/juanpmarin/broadcaster/internal/handler"
 	"github.com/juanpmarin/broadcaster/internal/server"
 	"github.com/knadh/koanf/v2"
 	"go.uber.org/zap"
@@ -30,7 +31,16 @@ func NewApp(logger *zap.Logger) *App {
 		CheckOrigin:       originChecker.Check,
 		EnableCompression: true,
 	}
-	websocketServer := server.NewWebSocketServer(logger, websocketUpgrader)
+	rpcHandlerFactory := server.NewRPCHandlerFactory(
+		handler.NewHeartbeatHandler(),
+		handler.NewJoinHandler(),
+		handler.NewPushHandler(),
+	)
+	websocketServer := server.NewWebSocketServer(
+		logger,
+		websocketUpgrader,
+		rpcHandlerFactory,
+	)
 
 	return &App{
 		logger,
