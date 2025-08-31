@@ -40,7 +40,8 @@ func NewJoinHandler(
 func (h *JoinHandler) Handle(ctx context.Context, req JoinRequest) (JoinResponse, error) {
 	err := h.channelIdValidator.Validate(req.ChannelId)
 	if err != nil {
-		return JoinResponse{}, NewError(ErrorCodeInvalidArgument, errors.New("invalid channelId"))
+		return JoinResponse{},
+			protocol.NewError(protocol.ErrorCodeInvalidArgument, errors.New("invalid channelId"))
 	}
 
 	var history []protocol.Message

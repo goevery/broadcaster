@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/juanpmarin/broadcaster/internal/handler"
+	"github.com/juanpmarin/broadcaster/internal/protocol"
 	"github.com/sourcegraph/jsonrpc2"
 	"go.uber.org/zap"
 )
@@ -175,7 +176,7 @@ func (h *RPCHandler) mapError(err error) *jsonrpc2.Error {
 		return jsonrpc2Err
 	}
 
-	handlerErr, ok := err.(*handler.Error)
+	handlerErr, ok := err.(*protocol.Error)
 	if ok {
 		return &jsonrpc2.Error{
 			Code:    mapErrorCode(handlerErr.Code()),
@@ -191,9 +192,9 @@ func (h *RPCHandler) mapError(err error) *jsonrpc2.Error {
 	}
 }
 
-func mapErrorCode(code handler.ErrorCode) int64 {
+func mapErrorCode(code protocol.ErrorCode) int64 {
 	switch code {
-	case handler.ErrorCodeInvalidArgument:
+	case protocol.ErrorCodeInvalidArgument:
 		return jsonrpc2.CodeInvalidParams
 	default:
 		return jsonrpc2.CodeInternalError

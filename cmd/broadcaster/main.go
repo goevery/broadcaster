@@ -77,7 +77,14 @@ func NewApp(logger *zap.Logger, settings Settings) *App {
 }
 
 func (a *App) setup(ctx context.Context) error {
-	return a.persistenceEngine.Setup(ctx)
+	err := a.persistenceEngine.Setup(ctx)
+	if err != nil {
+		return err
+	}
+
+	a.startHttpServer(ctx)
+
+	return nil
 }
 
 func (a *App) startHttpServer(ctx context.Context) {
@@ -140,8 +147,6 @@ func main() {
 
 	err = app.setup(ctx)
 	if err != nil {
-		logger.Fatal("failed to setup persistence engine", zap.Error(err))
+		logger.Fatal("failed to setup", zap.Error(err))
 	}
-
-	app.startHttpServer(ctx)
 }

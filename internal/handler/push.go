@@ -31,7 +31,8 @@ func NewPushHandler(
 func (h *PushHandler) Handle(ctx context.Context, req PushRequest) (protocol.Message, error) {
 	err := h.channelIdValidator.Validate(req.ChannelId)
 	if err != nil {
-		return protocol.Message{}, NewError(ErrorCodeInvalidArgument, errors.New("invalid channelId"))
+		return protocol.Message{},
+			protocol.NewError(protocol.ErrorCodeInvalidArgument, errors.New("invalid channelId"))
 	}
 
 	message, err := h.persistenceEngine.Save(ctx, persistence.SaveRequest{
