@@ -74,15 +74,7 @@ func (h *RPCHandler) Handle(ctx context.Context, conn *jsonrpc2.Conn, req *jsonr
 
 	response, err := h.routeRequest(timeoutCtx, req)
 	if err != nil {
-		h.logger.Error("error in rpc handler", zap.Error(err))
-
-		jsonrpc2Err, ok := err.(*jsonrpc2.Error)
-		if !ok {
-			jsonrpc2Err = &jsonrpc2.Error{
-				Code:    jsonrpc2.CodeInternalError,
-				Message: "internal server error",
-			}
-		}
+		jsonrpc2Err := h.mapError(err)
 
 		err = conn.ReplyWithError(ctx, req.ID, jsonrpc2Err)
 		if err != nil {
@@ -163,7 +155,15 @@ func (h *RPCHandler) decodeParams(params *json.RawMessage, v any) error {
 		}
 	}
 
-	return json.Unmarshal(*params, v)
+	err := json.Unmarshal(*params, v)
+	if err != nil {
+		return &jsonrpc2.Error{
+			Code:    jsonrpc2.CodeInvalidParams,
+			Message: "invalid params: " + err.Error(),
+		}
+	}
+
+	return nil
 }
 
 func (h *RPCHandler) mapError(err error) *jsonrpc2.Error {

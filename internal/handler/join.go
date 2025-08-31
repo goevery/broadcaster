@@ -9,8 +9,6 @@ import (
 	"github.com/juanpmarin/broadcaster/internal/protocol"
 )
 
-const ChannelIdRegex = `^(\w+:?)+$`
-
 type JoinRequest struct {
 	ChannelId         string
 	LastSeenMessageId string
