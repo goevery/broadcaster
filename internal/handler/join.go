@@ -3,35 +3,57 @@ package handler
 import (
 	"context"
 	"errors"
-	"regexp"
+	"time"
+
+	"github.com/juanpmarin/broadcaster/internal/persistence"
+	"github.com/juanpmarin/broadcaster/internal/protocol"
 )
 
 const ChannelIdRegex = `^(\w+:?)+$`
 
 type JoinRequest struct {
-	ChannelId string `json:"channelId"`
+	ChannelId         string
+	LastSeenMessageId string
 }
 
 type JoinResponse struct {
+	Timestamp time.Time          `json:"timestamp"`
+	History   []protocol.Message `json:"history"`
 }
 
 type JoinHandler struct {
-	channelIdRegexp *regexp.Regexp
+	channelIdValidator *ChannelIdValidator
+	persistenceEngine  persistence.Engine
 }
 
-func NewJoinHandler() *JoinHandler {
-	channelIdRegexp := regexp.MustCompile(ChannelIdRegex)
+func NewJoinHandler(
+	channelIdValidator *ChannelIdValidator,
+	persistenceEngine persistence.Engine,
+) *JoinHandler {
 
 	return &JoinHandler{
-		channelIdRegexp,
+		channelIdValidator,
+		persistenceEngine,
 	}
 }
 
 func (h *JoinHandler) Handle(ctx context.Context, req JoinRequest) (JoinResponse, error) {
-	validChannelId := h.channelIdRegexp.MatchString(req.ChannelId)
-	if !validChannelId {
+	err := h.channelIdValidator.Validate(req.ChannelId)
+	if err != nil {
 		return JoinResponse{}, NewError(ErrorCodeInvalidArgument, errors.New("invalid channelId"))
 	}
 
-	return JoinResponse{}, nil
+	var history []protocol.Message
+
+	if req.LastSeenMessageId != "" {
+		history, err = h.persistenceEngine.List(ctx, req.ChannelId, req.LastSeenMessageId)
+		if err != nil {
+			return JoinResponse{}, err
+		}
+	}
+
+	return JoinResponse{
+		Timestamp: time.Now(),
+		History:   history,
+	}, nil
 }

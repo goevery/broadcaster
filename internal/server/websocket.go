@@ -1,10 +1,10 @@
 package server
 
 import (
-	"context"
 	"log"
 	"net/http"
 
+	"github.com/gorilla/mux"
 	"github.com/gorilla/websocket"
 	"github.com/sourcegraph/jsonrpc2"
 	"go.uber.org/zap"
@@ -29,8 +29,8 @@ func NewWebSocketServer(
 	}
 }
 
-func (s *WebSocketServer) Register(ctx context.Context, mux *http.ServeMux) error {
-	mux.HandleFunc("/websocket", func(w http.ResponseWriter, r *http.Request) {
+func (s *WebSocketServer) Register(router *mux.Router) {
+	router.HandleFunc("/websocket", func(w http.ResponseWriter, r *http.Request) {
 		conn, err := s.upgrader.Upgrade(w, r, nil)
 		if err != nil {
 			log.Println(err)
@@ -46,7 +46,7 @@ func (s *WebSocketServer) Register(ctx context.Context, mux *http.ServeMux) erro
 		jsonrpcHandler := s.rpcHandlerFactory.New(handlerLogger)
 
 		jsonrpcConn := jsonrpc2.NewConn(
-			ctx,
+			r.Context(),
 			NewWebSocketObjectStream(conn),
 			jsonrpcHandler,
 			jsonrpc2.SetLogger(jsonrpcHandler),
@@ -56,8 +56,6 @@ func (s *WebSocketServer) Register(ctx context.Context, mux *http.ServeMux) erro
 
 		s.logger.Info("websocket connection closed")
 	})
-
-	return nil
 }
 
 type WebSocketObjectStream struct {

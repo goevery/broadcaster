@@ -3,7 +3,9 @@ package handler
 import (
 	"context"
 	"errors"
-	"regexp"
+
+	"github.com/juanpmarin/broadcaster/internal/persistence"
+	"github.com/juanpmarin/broadcaster/internal/protocol"
 )
 
 type PushRequest struct {
@@ -11,26 +13,34 @@ type PushRequest struct {
 	Payload   any    `json:"payload"`
 }
 
-type PushResponse struct {
-}
-
 type PushHandler struct {
-	channelIdRegexp *regexp.Regexp
+	channelIdValidator *ChannelIdValidator
+	persistenceEngine  persistence.Engine
 }
 
-func NewPushHandler() *PushHandler {
-	channelIdRegexp := regexp.MustCompile(ChannelIdRegex)
-
+func NewPushHandler(
+	channelIdValidator *ChannelIdValidator,
+	persistenceEngine persistence.Engine,
+) *PushHandler {
 	return &PushHandler{
-		channelIdRegexp,
+		channelIdValidator,
+		persistenceEngine,
 	}
 }
 
-func (h *PushHandler) Handle(ctx context.Context, req PushRequest) (PushResponse, error) {
-	validChannelId := h.channelIdRegexp.MatchString(req.ChannelId)
-	if !validChannelId {
-		return PushResponse{}, NewError(ErrorCodeInvalidArgument, errors.New("invalid channelId"))
+func (h *PushHandler) Handle(ctx context.Context, req PushRequest) (protocol.Message, error) {
+	err := h.channelIdValidator.Validate(req.ChannelId)
+	if err != nil {
+		return protocol.Message{}, NewError(ErrorCodeInvalidArgument, errors.New("invalid channelId"))
 	}
 
-	return PushResponse{}, nil
+	message, err := h.persistenceEngine.Save(ctx, persistence.SaveRequest{
+		ChannelId: req.ChannelId,
+		Payload:   req.Payload,
+	})
+	if err != nil {
+		return protocol.Message{}, err
+	}
+
+	return message, nil
 }

@@ -9,21 +9,27 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/Netflix/go-env"
+	"github.com/gorilla/mux"
 	"github.com/gorilla/websocket"
 	"github.com/juanpmarin/broadcaster/internal/handler"
+	"github.com/juanpmarin/broadcaster/internal/persistence"
+	"github.com/juanpmarin/broadcaster/internal/persistence/mongodb"
 	"github.com/juanpmarin/broadcaster/internal/server"
-	"github.com/knadh/koanf/v2"
+	"go.mongodb.org/mongo-driver/v2/mongo"
+	"go.mongodb.org/mongo-driver/v2/mongo/options"
 	"go.uber.org/zap"
 )
 
-var k = koanf.New(".")
-
 type App struct {
-	logger          *zap.Logger
-	websocketServer *server.WebSocketServer
+	logger            *zap.Logger
+	settings          Settings
+	websocketServer   *server.WebSocketServer
+	restServer        *server.RESTServer
+	persistenceEngine persistence.Engine
 }
 
-func NewApp(logger *zap.Logger) *App {
+func NewApp(logger *zap.Logger, settings Settings) *App {
 	originChecker := server.NewOriginChecker()
 	websocketUpgrader := &websocket.Upgrader{
 		ReadBufferSize:    1024,
@@ -31,39 +37,63 @@ func NewApp(logger *zap.Logger) *App {
 		CheckOrigin:       originChecker.Check,
 		EnableCompression: true,
 	}
+
+	channelIdValidator := handler.NewChannelIdValidator()
+
+	client, err := mongo.Connect(options.Client().
+		ApplyURI(settings.MongoDbUri))
+	if err != nil {
+		logger.Fatal("failed to connect to mongodb", zap.Error(err))
+	}
+
+	persistenceEngine := mongodb.NewPersistenceEngine(client)
+
+	heartbeatHandler := handler.NewHeartbeatHandler()
+	joinHandler := handler.NewJoinHandler(channelIdValidator, persistenceEngine)
+	pushHandler := handler.NewPushHandler(channelIdValidator, persistenceEngine)
+
 	rpcHandlerFactory := server.NewRPCHandlerFactory(
-		handler.NewHeartbeatHandler(),
-		handler.NewJoinHandler(),
-		handler.NewPushHandler(),
+		heartbeatHandler,
+		joinHandler,
+		pushHandler,
 	)
 	websocketServer := server.NewWebSocketServer(
 		logger,
 		websocketUpgrader,
 		rpcHandlerFactory,
 	)
+	restServer := server.NewRESTServer(
+		logger,
+		pushHandler,
+	)
 
 	return &App{
 		logger,
+		settings,
 		websocketServer,
+		restServer,
+		persistenceEngine,
 	}
+}
+
+func (a *App) setup(ctx context.Context) error {
+	return a.persistenceEngine.Setup(ctx)
 }
 
 func (a *App) startHttpServer(ctx context.Context) {
 	notifyCtx, notifyCtxCancel := signal.NotifyContext(ctx, syscall.SIGTERM, syscall.SIGINT)
 	defer notifyCtxCancel()
 
-	address := fmt.Sprintf("0.0.0.0:%d", 8000)
+	address := fmt.Sprintf("0.0.0.0:%d", a.settings.Port)
 
-	mux := http.NewServeMux()
-	err := a.websocketServer.Register(ctx, mux)
-	if err != nil {
-		a.logger.Fatal("failed to register websocket server",
-			zap.Error(err))
-	}
+	router := mux.NewRouter()
+
+	a.websocketServer.Register(router)
+	a.restServer.Register(router)
 
 	httpServer := &http.Server{
 		Addr:    address,
-		Handler: mux,
+		Handler: router,
 	}
 
 	a.logger.Info("starting http server",
@@ -85,7 +115,7 @@ func (a *App) startHttpServer(ctx context.Context) {
 	shutdownCtx, shutdownCtxCancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer shutdownCtxCancel()
 
-	err = httpServer.Shutdown(shutdownCtx)
+	err := httpServer.Shutdown(shutdownCtx)
 	if err != nil {
 		a.logger.Fatal("http server shutdown failed",
 			zap.Error(err))
@@ -100,7 +130,18 @@ func main() {
 	logger, _ := zap.NewDevelopment()
 	defer logger.Sync()
 
-	app := NewApp(logger)
+	var settings Settings
+	_, err := env.UnmarshalFromEnviron(&settings)
+	if err != nil {
+		logger.Fatal("failed to parse settings from environment", zap.Error(err))
+	}
+
+	app := NewApp(logger, settings)
+
+	err = app.setup(ctx)
+	if err != nil {
+		logger.Fatal("failed to setup persistence engine", zap.Error(err))
+	}
 
 	app.startHttpServer(ctx)
 }
