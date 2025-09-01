@@ -74,11 +74,11 @@
               <div class="flex items-center space-x-3">
                 <div
                   class="w-3 h-3 rounded-full"
-                  :class="connected ? 'bg-green-400' : 'bg-slate-500'"
+                  :class="connected ? 'bg-green-400' : authenticated ? 'bg-yellow-400' : 'bg-slate-500'"
                 ></div>
                 <span
                   class="text-lg font-medium text-white"
-                  x-text="connected ? 'Connected' : 'Disconnected'"
+                  x-text="connected ? 'Connected' : authenticated ? 'Authenticated' : 'Disconnected'"
                 ></span>
                 <span x-show="connected" class="text-sm text-slate-400">
                   (<span x-text="channelId"></span>)
@@ -87,7 +87,40 @@
             </div>
 
             <div class="flex flex-col space-y-3">
-              <div x-show="!connected">
+              <div x-show="!connected && !authenticated">
+                <label class="block text-sm font-medium text-slate-300 mb-2">
+                  User ID
+                </label>
+                <input
+                  x-model="userId"
+                  type="text"
+                  placeholder="User ID"
+                  class="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-md text-white text-sm placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+              </div>
+              <div x-show="!connected && !authenticated">
+                <label class="block text-sm font-medium text-slate-300 mb-2">
+                  Authorized Channel IDs (comma-separated)
+                </label>
+                <input
+                  x-model="authorizedChannels"
+                  type="text"
+                  placeholder="chan1,chan2,chan3"
+                  class="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-md text-white text-sm placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+              </div>
+              <div x-show="!connected && !authenticated">
+                <label class="block text-sm font-medium text-slate-300 mb-2">
+                  JWT Secret (for demo purposes)
+                </label>
+                <input
+                  x-model="jwtSecret"
+                  type="text"
+                  placeholder="your-secret-key"
+                  class="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-md text-white text-sm placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+              </div>
+              <div x-show="authenticated && !connected">
                 <label class="block text-sm font-medium text-slate-300 mb-2">
                   Channel ID to Listen
                 </label>
@@ -99,16 +132,18 @@
                 />
               </div>
               <button
-                @click="toggleConnection()"
-                :disabled="!connected && !channelId.trim()"
+                @click="handleConnectionAction()"
+                :disabled="(connected === false && authenticated === false && (!userId.trim() || !authorizedChannels.trim() || !jwtSecret.trim())) || (authenticated === true && connected === false && !channelId.trim())"
                 class="w-full inline-flex items-center justify-center space-x-2 px-4 py-3 rounded-md font-medium text-white transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
-                :class="connected ? 'bg-red-600 hover:bg-red-700' : 'bg-blue-600 hover:bg-blue-700'"
+                :class="connected ? 'bg-red-600 hover:bg-red-700' : authenticated ? 'bg-blue-600 hover:bg-blue-700' : 'bg-green-600 hover:bg-green-700'"
               >
                 <i
-                  :data-lucide="connected ? 'unplug' : 'plug'"
+                  :data-lucide="connected ? 'unplug' : authenticated ? 'plug' : 'user-check'"
                   class="w-4 h-4"
                 ></i>
-                <span x-text="connected ? 'Disconnect' : 'Connect'"></span>
+                <span
+                  x-text="connected ? 'Disconnect' : authenticated ? 'Join Channel' : 'Authenticate'"
+                ></span>
               </button>
             </div>
           </div>
@@ -180,6 +215,7 @@
         return {
           ws: null,
           connected: false,
+          authenticated: false,
           messages: [],
           channelId: "mychan",
           publishChannelId: "mychan",
@@ -187,67 +223,44 @@
           publishing: false,
           publishStatus: "",
           publishSuccess: false,
+          userId: "user123",
+          authorizedChannels: "mychan,otherchan",
+          jwtSecret: "your-secret-key",
+          requestId: 0,
+          pendingRequests: new Map(),
           init() {
             this.$nextTick(() => lucide.createIcons());
           },
-          toggleConnection() {
+
+          handleConnectionAction() {
             if (this.connected) {
               this.disconnect();
+            } else if (this.authenticated) {
+              this.joinChannel();
             } else {
-              this.connect();
+              this.authenticate();
             }
           },
-          connect() {
+          authenticate() {
             this.ws = new WebSocket("ws://localhost:8000/websocket");
-            let requestId = 0;
             let pingInterval;
 
             this.ws.onmessage = (event) => {
               const message = JSON.parse(event.data);
-
-              if (message.method === "broadcast") {
-                this.messages.push(message.params);
-              }
-
-              if (message.result && message.result.history) {
-                this.messages.push(...message.result.history.reverse());
-              }
+              this.handleWebSocketMessage(message);
             };
 
             this.ws.onopen = () => {
               console.log("Connected to WebSocket server");
-
-              this.connected = true;
-
               this.$nextTick(() => lucide.createIcons());
-
-              const lastSeenMessageId = this.messages.length
-                ? this.messages[this.messages.length - 1].id
-                : null;
-
-              this.ws.send(
-                JSON.stringify({
-                  id: String(requestId++),
-                  method: "join",
-                  params: { channelId: this.channelId, lastSeenMessageId },
-                }),
-              );
-
-              pingInterval = setInterval(() => {
-                this.ws.send(
-                  JSON.stringify({
-                    id: String(requestId++),
-                    method: "heartbeat",
-                  }),
-                );
-              }, 10000);
+              this.sendAuthentication();
             };
 
             this.ws.onclose = () => {
               console.log("Disconnected from WebSocket server");
-
+              this.authenticated = false;
               this.connected = false;
-
+              this.pendingRequests.clear();
               this.$nextTick(() => lucide.createIcons());
 
               if (pingInterval) {
@@ -259,12 +272,205 @@
             this.ws.onerror = (error) => {
               console.error("WebSocket error:", error);
             };
+
+            // Start heartbeat once authenticated and connected
+            this.$watch("connected", (connected) => {
+              if (connected && !pingInterval) {
+                pingInterval = setInterval(() => {
+                  this.sendRequest("heartbeat", null, false);
+                }, 10000);
+              }
+            });
+          },
+          async sendAuthentication() {
+            try {
+              const authChannels = this.authorizedChannels
+                .split(",")
+                .map((ch) => ch.trim())
+                .filter((ch) => ch);
+
+              // Create JWT token using vanilla JavaScript
+              const now = Math.floor(Date.now() / 1000);
+              const payload = {
+                sub: this.userId,
+                authorizedChannels: authChannels,
+                aud: "broadcaster",
+                iat: now,
+                exp: now + 3600, // 1 hour expiration
+              };
+
+              const token = await this.createJWT(payload, this.jwtSecret);
+
+              this.sendRequest("auth", {
+                token: token,
+              })
+                .then((response) => {
+                  if (response.error) {
+                    console.error("Authentication failed:", response.error);
+                    alert(`Authentication failed: ${response.error.message}`);
+                    this.disconnect();
+                  } else {
+                    console.log("Authentication successful");
+                    this.authenticated = true;
+                    this.$nextTick(() => lucide.createIcons());
+                  }
+                })
+                .catch((error) => {
+                  console.error("Authentication error:", error);
+                  alert(`Authentication error: ${error.message}`);
+                  this.disconnect();
+                });
+            } catch (error) {
+              console.error("JWT creation error:", error);
+              alert(`JWT creation error: ${error.message}`);
+              this.disconnect();
+            }
+          },
+          async createJWT(payload, secret) {
+            const header = {
+              alg: "HS256",
+              typ: "JWT",
+            };
+
+            const encodedHeader = this.base64UrlEncode(JSON.stringify(header));
+            const encodedPayload = this.base64UrlEncode(
+              JSON.stringify(payload),
+            );
+
+            const signatureInput = `${encodedHeader}.${encodedPayload}`;
+            const signature = await this.hmacSha256(signatureInput, secret);
+            const encodedSignature = this.base64UrlEncode(signature);
+
+            return `${encodedHeader}.${encodedPayload}.${encodedSignature}`;
+          },
+          base64UrlEncode(data) {
+            let bytes;
+            if (typeof data === "string") {
+              bytes = new TextEncoder().encode(data);
+            } else {
+              bytes = data;
+            }
+
+            const base64 = btoa(String.fromCharCode(...bytes));
+            return base64
+              .replace(/\+/g, "-")
+              .replace(/\//g, "_")
+              .replace(/=/g, "");
+          },
+          async hmacSha256(data, secret) {
+            const encoder = new TextEncoder();
+            const keyData = encoder.encode(secret);
+            const dataBuffer = encoder.encode(data);
+
+            const key = await crypto.subtle.importKey(
+              "raw",
+              keyData,
+              { name: "HMAC", hash: "SHA-256" },
+              false,
+              ["sign"],
+            );
+
+            const signature = await crypto.subtle.sign("HMAC", key, dataBuffer);
+            return new Uint8Array(signature);
+          },
+
+          joinChannel() {
+            if (!this.authenticated || !this.channelId.trim()) {
+              return;
+            }
+
+            const lastSeenMessageId = this.messages.length
+              ? this.messages[this.messages.length - 1].id
+              : "";
+
+            this.sendRequest("join", {
+              channelId: this.channelId,
+              lastSeenMessageId: lastSeenMessageId,
+            })
+              .then((response) => {
+                if (response.error) {
+                  console.error("Join failed:", response.error);
+                  alert(`Failed to join channel: ${response.error.message}`);
+                } else {
+                  console.log("Successfully joined channel");
+                  this.connected = true;
+
+                  // Add history messages if any
+                  if (response.result && response.result.history) {
+                    this.messages.push(...response.result.history.reverse());
+                  }
+
+                  this.$nextTick(() => lucide.createIcons());
+                }
+              })
+              .catch((error) => {
+                console.error("Join error:", error);
+                alert(`Error joining channel: ${error}`);
+              });
+          },
+          sendRequest(method, params, expectReply = true) {
+            return new Promise((resolve, reject) => {
+              if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
+                reject(new Error("WebSocket not connected"));
+                return;
+              }
+
+              const request = {
+                method: method,
+                params: params,
+              };
+
+              if (expectReply) {
+                request.id = String(this.requestId++);
+                this.pendingRequests.set(request.id, {
+                  resolve,
+                  reject,
+                  timestamp: Date.now(),
+                });
+
+                // Timeout after 30 seconds
+                setTimeout(() => {
+                  if (this.pendingRequests.has(request.id)) {
+                    this.pendingRequests.delete(request.id);
+                    reject(new Error("Request timeout"));
+                  }
+                }, 30000);
+              } else {
+                // For requests that don't expect a reply, resolve immediately
+                resolve(null);
+              }
+
+              this.ws.send(JSON.stringify(request));
+            });
+          },
+          handleWebSocketMessage(message) {
+            // Handle notifications (broadcasts)
+            if (message.method === "broadcast") {
+              this.messages.push(message.params);
+              return;
+            }
+
+            // Handle responses to requests
+            if (
+              message.requestId &&
+              this.pendingRequests.has(message.requestId)
+            ) {
+              const { resolve } = this.pendingRequests.get(message.requestId);
+              this.pendingRequests.delete(message.requestId);
+              resolve(message);
+              return;
+            }
+
+            console.log("Unhandled message:", message);
           },
           disconnect() {
             if (this.ws) {
               this.ws.close();
               this.ws = null;
             }
+            this.authenticated = false;
+            this.connected = false;
+            this.pendingRequests.clear();
           },
           async publishMessage() {
             if (!this.publishChannelId.trim() || !this.messagePayload.trim()) {

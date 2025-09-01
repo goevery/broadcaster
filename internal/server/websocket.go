@@ -49,7 +49,7 @@ func (s *WebSocketServer) Register(router *mux.Router) {
 
 		rpcChannel := make(chan any, 1024)
 
-		broadcasterConn := broadcaster.Connection{
+		broadcasterConn := &broadcaster.Connection{
 			Id:   connectionId,
 			Send: broascasterChannel,
 		}

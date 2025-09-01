@@ -16,6 +16,7 @@ type Router struct {
 	joinHandler      *handler.JoinHandler
 	leaveHandler     *handler.LeaveHandler
 	pushHandler      *handler.PushHandler
+	authHandler      *handler.AuthHandler
 }
 
 func NewRouter(
@@ -24,6 +25,7 @@ func NewRouter(
 	joinHandler *handler.JoinHandler,
 	leaveHandler *handler.LeaveHandler,
 	pushHandler *handler.PushHandler,
+	authHandler *handler.AuthHandler,
 ) *Router {
 	return &Router{
 		logger,
@@ -31,6 +33,7 @@ func NewRouter(
 		joinHandler,
 		leaveHandler,
 		pushHandler,
+		authHandler,
 	}
 }
 
@@ -81,6 +84,12 @@ func (r *Router) Handle(ctx context.Context, request handler.Request) (any, erro
 	switch request.Method {
 	case "heartbeat":
 		return r.heartbeatHandler.Handle(), nil
+	case "auth":
+		var authReq handler.AuthRequest
+		if err := decodeParams(request.Params, &authReq); err != nil {
+			return nil, err
+		}
+		return r.authHandler.Handle(ctx, authReq)
 	case "join":
 		var joinReq handler.JoinRequest
 		if err := decodeParams(request.Params, &joinReq); err != nil {

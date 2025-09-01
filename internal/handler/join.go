@@ -46,6 +46,16 @@ func (h *JoinHandler) Handle(ctx context.Context, req JoinRequest) (JoinResponse
 		return JoinResponse{}, err
 	}
 
+	connection, ok := broadcaster.ConnectionFromContext(ctx)
+	if !ok {
+		return JoinResponse{}, errors.New("connection not found in context")
+	}
+
+	if !connection.IsAuthorized(req.ChannelId) {
+		return JoinResponse{},
+			NewError(ErrorCodeUnauthenticated, errors.New("user not authorized to access this channel"))
+	}
+
 	var history []broadcaster.Message
 	historyRecovered := false
 
@@ -67,12 +77,6 @@ func (h *JoinHandler) Handle(ctx context.Context, req JoinRequest) (JoinResponse
 		} else {
 			history = []broadcaster.Message{}
 		}
-	}
-
-	connection, ok := broadcaster.ConnectionFromContext(ctx)
-	if !ok {
-		return JoinResponse{},
-			NewError(ErrorCodeFailedPrecondition, errors.New("connection info not available"))
 	}
 
 	err = h.subscriptionRegistry.Subscribe(req.ChannelId, connection)

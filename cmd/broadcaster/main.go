@@ -54,6 +54,7 @@ func NewApp(logger *zap.Logger, settings Settings) *App {
 	joinHandler := handler.NewJoinHandler(channelIdValidator, persistenceEngine, registry)
 	leaveHandler := handler.NewLeaveHandler(channelIdValidator, registry)
 	pushHandler := handler.NewPushHandler(channelIdValidator, persistenceEngine, registry)
+	authHandler := handler.NewAuthHandler("broadcaster")
 
 	router := server.NewRouter(
 		logger,
@@ -61,6 +62,7 @@ func NewApp(logger *zap.Logger, settings Settings) *App {
 		joinHandler,
 		leaveHandler,
 		pushHandler,
+		authHandler,
 	)
 
 	websocketServer := server.NewWebSocketServer(

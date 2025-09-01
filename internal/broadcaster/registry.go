@@ -8,9 +8,9 @@ import (
 )
 
 type Registry interface {
-	Connect(connection Connection) error
+	Connect(connection *Connection) error
 	Broadcast(message Message)
-	Subscribe(channelId string, connection Connection) error
+	Subscribe(channelId string, connection *Connection) error
 	Unsubscribe(channelId string, connectionId string)
 	Disconnect(connectionId string)
 }
@@ -19,7 +19,7 @@ type InMemoryRegistry struct {
 	logger *zap.Logger
 	mu     sync.RWMutex
 
-	connections          map[string]Connection
+	connections          map[string]*Connection
 	connectionsByChannel map[string]map[string]struct{}
 	channelsByConnection map[string]map[string]struct{}
 }
@@ -29,13 +29,13 @@ func NewInMemoryRegistry(
 ) *InMemoryRegistry {
 	return &InMemoryRegistry{
 		logger:               logger,
-		connections:          make(map[string]Connection),
+		connections:          make(map[string]*Connection),
 		connectionsByChannel: make(map[string]map[string]struct{}),
 		channelsByConnection: make(map[string]map[string]struct{}),
 	}
 }
 
-func (r *InMemoryRegistry) Connect(connection Connection) error {
+func (r *InMemoryRegistry) Connect(connection *Connection) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
@@ -59,7 +59,7 @@ func (r *InMemoryRegistry) Broadcast(message Message) {
 		return
 	}
 
-	connections := make([]Connection, 0, len(connectionIds))
+	connections := make([]*Connection, 0, len(connectionIds))
 	for connectionId := range connectionIds {
 		if connection, ok := r.connections[connectionId]; ok {
 			connections = append(connections, connection)
@@ -94,7 +94,7 @@ func (r *InMemoryRegistry) Broadcast(message Message) {
 	r.mu.Unlock()
 }
 
-func (r *InMemoryRegistry) Subscribe(channelId string, connection Connection) error {
+func (r *InMemoryRegistry) Subscribe(channelId string, connection *Connection) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 

@@ -50,6 +50,7 @@ const (
 	ErrorCodeNotFound           ErrorCode = "NotFound"
 	ErrorCodeAlreadyExists      ErrorCode = "AlreadyExists"
 	ErrorCodeFailedPrecondition ErrorCode = "FailedPrecondition"
+	ErrorCodeUnauthenticated    ErrorCode = "Unauthenticated"
 	ErrorCodeInternal           ErrorCode = "Internal"
 )
 

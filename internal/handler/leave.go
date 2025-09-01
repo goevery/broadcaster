@@ -38,8 +38,7 @@ func (h *LeaveHandler) Handle(ctx context.Context, req LeaveRequest) (LeaveRespo
 
 	connection, ok := broadcaster.ConnectionFromContext(ctx)
 	if !ok {
-		return LeaveResponse{},
-			NewError(ErrorCodeInvalidArgument, errors.New("connection info not available"))
+		return LeaveResponse{}, errors.New("connection not found in context")
 	}
 
 	h.subscriptionRegistry.Unsubscribe(req.ChannelId, connection.Id)
