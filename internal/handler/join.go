@@ -61,6 +61,12 @@ func (h *JoinHandler) Handle(ctx context.Context, req JoinRequest) (JoinResponse
 				break
 			}
 		}
+
+		if historyRecovered {
+			history = history[:len(history)-1]
+		} else {
+			history = []broadcaster.Message{}
+		}
 	}
 
 	connection, ok := broadcaster.ConnectionFromContext(ctx)

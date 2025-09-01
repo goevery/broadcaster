@@ -1,0 +1,12 @@
+[
+  {
+    "label": "Run broadcaster",
+    "adapter": "Delve",
+    "request": "launch",
+    "mode": "debug",
+    "program": "./cmd/broadcaster",
+    "env": {
+      "MONGODB_URI": "mongodb://127.0.0.1:27017/?directConnection=true&replicaSet=rs0"
+    }
+  }
+]

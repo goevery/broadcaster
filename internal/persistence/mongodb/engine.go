@@ -2,6 +2,7 @@ package mongodb
 
 import (
 	"context"
+	"encoding/json"
 	"time"
 
 	"github.com/juanpmarin/broadcaster/internal/broadcaster"
@@ -52,10 +53,15 @@ func (e *PersistenceEngine) Setup(ctx context.Context) error {
 func (e *PersistenceEngine) Save(ctx context.Context, message persistence.SaveRequest) (broadcaster.Message, error) {
 	createTime := time.Now()
 
+	payloadJson, err := json.Marshal(message.Payload)
+	if err != nil {
+		return broadcaster.Message{}, err
+	}
+
 	result, err := e.collection.InsertOne(ctx, bson.D{
 		{Key: "createTime", Value: createTime},
 		{Key: "channelId", Value: message.ChannelId},
-		{Key: "payload", Value: message.Payload},
+		{Key: "payload", Value: string(payloadJson)},
 	})
 
 	return broadcaster.Message{
@@ -73,12 +79,12 @@ func (e *PersistenceEngine) List(ctx context.Context, channelId string, lastSeen
 	}
 
 	filter := bson.M{
-		"_id":       bson.M{"$gt": lastSeenObjectId},
+		"_id":       bson.M{"$gte": lastSeenObjectId},
 		"channelId": channelId,
 	}
 	opts := options.Find().
 		SetSort(bson.D{{Key: "_id", Value: -1}}).
-		SetLimit(100)
+		SetLimit(101)
 
 	result, err := e.collection.Find(ctx, filter, opts)
 	if err != nil {
@@ -93,10 +99,17 @@ func (e *PersistenceEngine) List(ctx context.Context, channelId string, lastSeen
 
 	messages := make([]broadcaster.Message, len(mongoMessages))
 	for i, m := range mongoMessages {
+		var payload any
+		err := json.Unmarshal([]byte(m.Payload), &payload)
+		if err != nil {
+			return nil, err
+		}
+
 		messages[i] = broadcaster.Message{
-			Id:        m.Id.Hex(),
-			ChannelId: m.ChannelId,
-			Payload:   m.Payload,
+			Id:         m.Id.Hex(),
+			CreateTime: m.CreateTime,
+			ChannelId:  m.ChannelId,
+			Payload:    payload,
 		}
 	}
 
