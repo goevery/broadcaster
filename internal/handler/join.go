@@ -7,6 +7,7 @@ import (
 
 	"github.com/juanpmarin/broadcaster/internal/persistence"
 	"github.com/juanpmarin/broadcaster/internal/protocol"
+	"github.com/juanpmarin/broadcaster/internal/registry"
 )
 
 type JoinRequest struct {
@@ -15,23 +16,27 @@ type JoinRequest struct {
 }
 
 type JoinResponse struct {
-	Timestamp time.Time          `json:"timestamp"`
-	History   []protocol.Message `json:"history"`
+	Timestamp      time.Time          `json:"timestamp"`
+	History        []protocol.Message `json:"history"`
+	SubscriptionId string             `json:"subscriptionId,omitempty"`
 }
 
 type JoinHandler struct {
-	channelIdValidator *ChannelIdValidator
-	persistenceEngine  persistence.Engine
+	channelIdValidator   *ChannelIdValidator
+	persistenceEngine    persistence.Engine
+	subscriptionRegistry registry.Registry
 }
 
 func NewJoinHandler(
 	channelIdValidator *ChannelIdValidator,
 	persistenceEngine persistence.Engine,
+	subscriptionRegistry registry.Registry,
 ) *JoinHandler {
 
 	return &JoinHandler{
 		channelIdValidator,
 		persistenceEngine,
+		subscriptionRegistry,
 	}
 }
 
@@ -51,8 +56,23 @@ func (h *JoinHandler) Handle(ctx context.Context, req JoinRequest) (JoinResponse
 		}
 	}
 
-	return JoinResponse{
+	response := JoinResponse{
 		Timestamp: time.Now(),
 		History:   history,
-	}, nil
+	}
+
+	// Subscribe the connection to the channel - connection info MUST be available
+	connInfo, ok := registry.ConnectionInfoFromContext(ctx)
+	if !ok {
+		return JoinResponse{},
+			protocol.NewError(protocol.ErrorCodeInvalidArgument, errors.New("connection info not available"))
+	}
+
+	subscription, err := h.subscriptionRegistry.Subscribe(ctx, req.ChannelId, connInfo)
+	if err != nil {
+		return JoinResponse{}, err
+	}
+	response.SubscriptionId = subscription.ConnectionInfo.Id
+
+	return response, nil
 }

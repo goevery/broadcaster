@@ -8,25 +8,32 @@ import (
 
 	"github.com/juanpmarin/broadcaster/internal/handler"
 	"github.com/juanpmarin/broadcaster/internal/protocol"
+	"github.com/juanpmarin/broadcaster/internal/registry"
 	"github.com/sourcegraph/jsonrpc2"
 	"go.uber.org/zap"
 )
 
 type RPCHandlerFactory struct {
-	heartbeatHandler *handler.HeartbeatHandler
-	joinHandler      *handler.JoinHandler
-	pushHandler      *handler.PushHandler
+	heartbeatHandler     *handler.HeartbeatHandler
+	joinHandler          *handler.JoinHandler
+	leaveHandler         *handler.LeaveHandler
+	pushHandler          *handler.PushHandler
+	subscriptionRegistry registry.Registry
 }
 
 func NewRPCHandlerFactory(
 	heartbeatHandler *handler.HeartbeatHandler,
 	joinHandler *handler.JoinHandler,
+	leaveHandler *handler.LeaveHandler,
 	pushHandler *handler.PushHandler,
+	subscriptionRegistry registry.Registry,
 ) *RPCHandlerFactory {
 	return &RPCHandlerFactory{
 		heartbeatHandler,
 		joinHandler,
+		leaveHandler,
 		pushHandler,
+		subscriptionRegistry,
 	}
 }
 
@@ -37,7 +44,10 @@ func (f *RPCHandlerFactory) New(logger *zap.Logger) *RPCHandler {
 
 		f.heartbeatHandler,
 		f.joinHandler,
+		f.leaveHandler,
 		f.pushHandler,
+		f.subscriptionRegistry,
+		registry.ConnectionInfo{}, // Will be set later
 	}
 }
 
@@ -45,9 +55,17 @@ type RPCHandler struct {
 	logger        *zap.Logger
 	sugaredLogger *zap.SugaredLogger
 
-	heartbeatHandler *handler.HeartbeatHandler
-	joinHandler      *handler.JoinHandler
-	pushHandler      *handler.PushHandler
+	heartbeatHandler     *handler.HeartbeatHandler
+	joinHandler          *handler.JoinHandler
+	leaveHandler         *handler.LeaveHandler
+	pushHandler          *handler.PushHandler
+	subscriptionRegistry registry.Registry
+	connectionInfo       registry.ConnectionInfo
+}
+
+// SetConnectionInfo sets the connection info after handler creation
+func (h *RPCHandler) SetConnectionInfo(connInfo registry.ConnectionInfo) {
+	h.connectionInfo = connInfo
 }
 
 func (h *RPCHandler) Handle(ctx context.Context, conn *jsonrpc2.Conn, req *jsonrpc2.Request) {
@@ -72,6 +90,9 @@ func (h *RPCHandler) Handle(ctx context.Context, conn *jsonrpc2.Conn, req *jsonr
 	timeoutCtx, cancel := context.WithTimeout(ctx, time.Minute)
 	defer cancel()
 
+	// Add connection info to context for handlers
+	timeoutCtx = registry.WithConnectionInfo(timeoutCtx, h.connectionInfo)
+
 	response, err := h.routeRequest(timeoutCtx, req)
 	if err != nil {
 		jsonrpc2Err := h.mapError(err)
@@ -85,7 +106,7 @@ func (h *RPCHandler) Handle(ctx context.Context, conn *jsonrpc2.Conn, req *jsonr
 	}
 
 	hasResponse := response != nil
-	responseExpected := req.Notif == false
+	responseExpected := !req.Notif
 
 	if responseExpected != hasResponse {
 		h.logger.Error("response expected mismatch",
@@ -129,6 +150,16 @@ func (h *RPCHandler) routeRequest(ctx context.Context, req *jsonrpc2.Request) (a
 		}
 
 		return h.joinHandler.Handle(ctx, joinReq)
+	}
+
+	if req.Method == "leave" {
+		var leaveReq handler.LeaveRequest
+		err := h.decodeParams(req.Params, &leaveReq)
+		if err != nil {
+			return nil, err
+		}
+
+		return h.leaveHandler.Handle(ctx, leaveReq)
 	}
 
 	if req.Method == "push" {

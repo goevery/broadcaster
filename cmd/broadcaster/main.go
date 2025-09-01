@@ -15,6 +15,7 @@ import (
 	"github.com/juanpmarin/broadcaster/internal/handler"
 	"github.com/juanpmarin/broadcaster/internal/persistence"
 	"github.com/juanpmarin/broadcaster/internal/persistence/mongodb"
+	"github.com/juanpmarin/broadcaster/internal/registry"
 	"github.com/juanpmarin/broadcaster/internal/server"
 	"go.mongodb.org/mongo-driver/v2/mongo"
 	"go.mongodb.org/mongo-driver/v2/mongo/options"
@@ -22,11 +23,12 @@ import (
 )
 
 type App struct {
-	logger            *zap.Logger
-	settings          Settings
-	websocketServer   *server.WebSocketServer
-	restServer        *server.RESTServer
-	persistenceEngine persistence.Engine
+	logger               *zap.Logger
+	settings             Settings
+	websocketServer      *server.WebSocketServer
+	restServer           *server.RESTServer
+	persistenceEngine    persistence.Engine
+	subscriptionRegistry registry.Registry
 }
 
 func NewApp(logger *zap.Logger, settings Settings) *App {
@@ -47,20 +49,25 @@ func NewApp(logger *zap.Logger, settings Settings) *App {
 	}
 
 	persistenceEngine := mongodb.NewPersistenceEngine(client)
+	subscriptionRegistry := registry.NewInMemoryRegistry(logger)
 
 	heartbeatHandler := handler.NewHeartbeatHandler()
-	joinHandler := handler.NewJoinHandler(channelIdValidator, persistenceEngine)
-	pushHandler := handler.NewPushHandler(channelIdValidator, persistenceEngine)
+	joinHandler := handler.NewJoinHandler(channelIdValidator, persistenceEngine, subscriptionRegistry)
+	leaveHandler := handler.NewLeaveHandler(channelIdValidator, subscriptionRegistry)
+	pushHandler := handler.NewPushHandler(channelIdValidator, persistenceEngine, subscriptionRegistry)
 
 	rpcHandlerFactory := server.NewRPCHandlerFactory(
 		heartbeatHandler,
 		joinHandler,
+		leaveHandler,
 		pushHandler,
+		subscriptionRegistry,
 	)
 	websocketServer := server.NewWebSocketServer(
 		logger,
 		websocketUpgrader,
 		rpcHandlerFactory,
+		subscriptionRegistry,
 	)
 	restServer := server.NewRESTServer(
 		logger,
@@ -73,6 +80,7 @@ func NewApp(logger *zap.Logger, settings Settings) *App {
 		websocketServer,
 		restServer,
 		persistenceEngine,
+		subscriptionRegistry,
 	}
 }
 
