@@ -8,9 +8,10 @@ import (
 )
 
 type Registry interface {
+	Connect(connection Connection) error
 	Broadcast(message Message)
-	Register(channelId string, connection Connection) error
-	Unregister(channelId string, connectionId string)
+	Subscribe(channelId string, connection Connection) error
+	Unsubscribe(channelId string, connectionId string)
 	Disconnect(connectionId string)
 }
 
@@ -32,6 +33,20 @@ func NewInMemoryRegistry(
 		connectionsByChannel: make(map[string]map[string]struct{}),
 		channelsByConnection: make(map[string]map[string]struct{}),
 	}
+}
+
+func (r *InMemoryRegistry) Connect(connection Connection) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	if _, ok := r.connections[connection.Id]; ok {
+		return errors.New("connection already connected")
+	}
+
+	r.connections[connection.Id] = connection
+	r.channelsByConnection[connection.Id] = make(map[string]struct{})
+
+	return nil
 }
 
 func (r *InMemoryRegistry) Broadcast(message Message) {
@@ -79,33 +94,31 @@ func (r *InMemoryRegistry) Broadcast(message Message) {
 	r.mu.Unlock()
 }
 
-func (r *InMemoryRegistry) Register(channelId string, connection Connection) error {
+func (r *InMemoryRegistry) Subscribe(channelId string, connection Connection) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
+
+	if _, ok := r.connections[connection.Id]; !ok {
+		return errors.New("connection not connected")
+	}
 
 	// Ensure map for the channel exists
 	if _, ok := r.connectionsByChannel[channelId]; !ok {
 		r.connectionsByChannel[channelId] = make(map[string]struct{})
 	}
 
-	// Check if connection is already registered to the channel
+	// Check if connection is already subscribed to the channel
 	if _, ok := r.connectionsByChannel[channelId][connection.Id]; ok {
-		return errors.New("connection already registered to channel")
+		return errors.New("connection already subscribed to channel")
 	}
 
 	r.connectionsByChannel[channelId][connection.Id] = struct{}{}
-	r.connections[connection.Id] = connection
-
-	if _, ok := r.channelsByConnection[connection.Id]; !ok {
-		r.channelsByConnection[connection.Id] = make(map[string]struct{})
-	}
-
 	r.channelsByConnection[connection.Id][channelId] = struct{}{}
 
 	return nil
 }
 
-func (r *InMemoryRegistry) Unregister(channelId string, connectionId string) {
+func (r *InMemoryRegistry) Unsubscribe(channelId string, connectionId string) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
@@ -117,7 +130,6 @@ func (r *InMemoryRegistry) Unregister(channelId string, connectionId string) {
 	delete(connectionChannels, channelId)
 	if len(connectionChannels) == 0 {
 		delete(r.channelsByConnection, connectionId)
-		delete(r.connections, connectionId)
 	}
 
 	channelConnections, ok := r.connectionsByChannel[channelId]

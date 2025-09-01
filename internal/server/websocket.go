@@ -48,12 +48,13 @@ func (s *WebSocketServer) Register(router *mux.Router) {
 		broascasterChannel := make(chan broadcaster.Message, 1024)
 
 		rpcChannel := make(chan any, 1024)
-		defer close(rpcChannel)
 
 		broadcasterConn := broadcaster.Connection{
 			Id:   connectionId,
 			Send: broascasterChannel,
 		}
+
+		s.registry.Connect(broadcasterConn)
 
 		ctx := broadcaster.WithConnection(r.Context(), broadcasterConn)
 
@@ -73,6 +74,10 @@ func (s *WebSocketServer) Register(router *mux.Router) {
 
 			rpcChannel <- notification
 		}
+
+		close(rpcChannel)
+
+		s.logger.Info("websocket connection closed", zap.String("connectionId", connectionId))
 	})
 }
 
@@ -121,11 +126,13 @@ func (s *WebSocketServer) writePump(
 		case message, ok := <-rpcChannel:
 			if !ok {
 				// Channel closed, close the connection
+				wsConn.SetWriteDeadline(time.Now().Add(10 * time.Second))
 				wsConn.WriteMessage(websocket.CloseMessage, []byte{})
 
 				return
 			}
 
+			wsConn.SetWriteDeadline(time.Now().Add(10 * time.Second))
 			err := wsConn.WriteJSON(message)
 			if err != nil {
 				s.logger.Error("failed to send broadcast notification", zap.Error(err))

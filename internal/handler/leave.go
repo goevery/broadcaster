@@ -42,7 +42,7 @@ func (h *LeaveHandler) Handle(ctx context.Context, req LeaveRequest) (LeaveRespo
 			NewError(ErrorCodeInvalidArgument, errors.New("connection info not available"))
 	}
 
-	h.subscriptionRegistry.Unregister(req.ChannelId, connection.Id)
+	h.subscriptionRegistry.Unsubscribe(req.ChannelId, connection.Id)
 
 	return LeaveResponse{
 		Success: true,

@@ -69,7 +69,7 @@ func (h *JoinHandler) Handle(ctx context.Context, req JoinRequest) (JoinResponse
 			NewError(ErrorCodeFailedPrecondition, errors.New("connection info not available"))
 	}
 
-	err = h.subscriptionRegistry.Register(req.ChannelId, connection)
+	err = h.subscriptionRegistry.Subscribe(req.ChannelId, connection)
 	if err != nil {
 		return JoinResponse{}, err
 	}
