@@ -9,87 +9,167 @@
   <body class="bg-slate-900 min-h-screen">
     <div
       x-data="broadcasterClient()"
-      class="container mx-auto px-4 py-6 max-w-4xl"
+      class="container mx-auto px-4 py-6 max-w-7xl"
     >
-      <!-- Connection Panel -->
-      <div class="bg-slate-800 border border-slate-700 rounded-lg p-6 mb-6">
-        <div class="flex items-center justify-between">
-          <div class="flex items-center space-x-3">
-            <div
-              class="w-3 h-3 rounded-full"
-              :class="connected ? 'bg-green-400' : 'bg-slate-500'"
-            ></div>
-            <span
-              class="text-lg font-medium text-white"
-              x-text="connected ? 'Connected' : 'Disconnected'"
-            ></span>
-            <span x-show="connected" class="text-sm text-slate-400">
-              (mychan)
-            </span>
-          </div>
+      <!-- Two Column Layout -->
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <!-- Left Column: Publishing -->
+        <div class="space-y-6">
+          <h1 class="text-2xl font-bold text-white">Publish Messages</h1>
 
-          <button
-            @click="toggleConnection()"
-            class="inline-flex items-center space-x-2 px-4 py-2 rounded-md font-medium text-white transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500"
-            :class="connected ? 'bg-red-600 hover:bg-red-700' : 'bg-blue-600 hover:bg-blue-700'"
-          >
-            <i :data-lucide="connected ? 'unplug' : 'plug'" class="w-4 h-4"></i>
-            <span x-text="connected ? 'Disconnect' : 'Connect'"></span>
-          </button>
-        </div>
-      </div>
-
-      <!-- Messages Section -->
-      <div class="bg-slate-800 border border-slate-700 rounded-lg">
-        <div class="px-6 py-4 border-b border-slate-700">
-          <div class="flex items-center justify-between">
-            <h2 class="text-lg font-medium text-white">Messages</h2>
-            <span
-              class="bg-slate-700 text-slate-300 px-2 py-1 rounded text-sm"
-              x-text="messages.length"
-            ></span>
-          </div>
-        </div>
-
-        <div class="p-6">
-          <!-- Empty State -->
-          <div x-show="messages.length === 0" class="text-center py-8">
-            <i
-              data-lucide="inbox"
-              class="w-8 h-8 text-slate-500 mx-auto mb-2"
-            ></i>
-            <p class="text-slate-400">No messages yet</p>
-          </div>
-
-          <!-- Messages List -->
-          <div
-            x-show="messages.length > 0"
-            class="space-y-3 max-h-80 overflow-y-auto"
-          >
-            <template
-              x-for="(message, index) in messages.slice().reverse()"
-              :key="message.id"
-            >
-              <div
-                class="bg-slate-700/50 border border-slate-600 rounded-md p-4"
-              >
-                <div class="flex items-center justify-between mb-2">
-                  <span class="text-sm font-medium text-slate-300">
-                    Message #<span x-text="messages.length - index"></span>
-                  </span>
-                  <span
-                    class="text-xs text-slate-500"
-                    x-text="'ID: ' + message.id"
-                  ></span>
-                </div>
-                <div class="bg-slate-800 rounded border border-slate-600 p-3">
-                  <pre
-                    class="text-sm text-slate-300 font-mono whitespace-pre-wrap overflow-x-auto"
-                    x-text="JSON.stringify(message.payload, null, 2)"
-                  ></pre>
-                </div>
+          <!-- Publish Message Section -->
+          <div class="bg-slate-800 border border-slate-700 rounded-lg p-6">
+            <h2 class="text-lg font-medium text-white mb-4">Send Message</h2>
+            <div class="space-y-4">
+              <div>
+                <label class="block text-sm font-medium text-slate-300 mb-2">
+                  Target Channel ID
+                </label>
+                <input
+                  x-model="publishChannelId"
+                  type="text"
+                  placeholder="Channel ID"
+                  class="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-md text-white text-sm placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
               </div>
-            </template>
+              <div>
+                <label class="block text-sm font-medium text-slate-300 mb-2">
+                  Message Payload (JSON)
+                </label>
+                <textarea
+                  x-model="messagePayload"
+                  rows="8"
+                  placeholder='{"message": "hello world"}'
+                  class="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-md text-white text-sm placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent font-mono"
+                ></textarea>
+              </div>
+              <button
+                @click="publishMessage()"
+                :disabled="!publishChannelId.trim() || !messagePayload.trim() || publishing"
+                class="w-full inline-flex items-center justify-center space-x-2 px-4 py-3 rounded-md font-medium text-white transition-colors focus:outline-none focus:ring-2 focus:ring-green-500 disabled:opacity-50 disabled:cursor-not-allowed bg-green-600 hover:bg-green-700"
+              >
+                <i data-lucide="send" class="w-4 h-4"></i>
+                <span
+                  x-text="publishing ? 'Publishing...' : 'Publish Message'"
+                ></span>
+              </button>
+              <div
+                x-show="publishStatus"
+                class="p-3 rounded-md"
+                :class="publishSuccess ? 'bg-green-900/50 border border-green-700 text-green-200' : 'bg-red-900/50 border border-red-700 text-red-200'"
+              >
+                <span x-text="publishStatus"></span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Right Column: Listening -->
+        <div class="space-y-6">
+          <h1 class="text-2xl font-bold text-white">Listen to Messages</h1>
+
+          <!-- Connection Panel -->
+          <div class="bg-slate-800 border border-slate-700 rounded-lg p-6">
+            <div class="flex items-center justify-between mb-4">
+              <div class="flex items-center space-x-3">
+                <div
+                  class="w-3 h-3 rounded-full"
+                  :class="connected ? 'bg-green-400' : 'bg-slate-500'"
+                ></div>
+                <span
+                  class="text-lg font-medium text-white"
+                  x-text="connected ? 'Connected' : 'Disconnected'"
+                ></span>
+                <span x-show="connected" class="text-sm text-slate-400">
+                  (<span x-text="channelId"></span>)
+                </span>
+              </div>
+            </div>
+
+            <div class="flex flex-col space-y-3">
+              <div x-show="!connected">
+                <label class="block text-sm font-medium text-slate-300 mb-2">
+                  Channel ID to Listen
+                </label>
+                <input
+                  x-model="channelId"
+                  type="text"
+                  placeholder="Channel ID"
+                  class="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-md text-white text-sm placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+              </div>
+              <button
+                @click="toggleConnection()"
+                :disabled="!connected && !channelId.trim()"
+                class="w-full inline-flex items-center justify-center space-x-2 px-4 py-3 rounded-md font-medium text-white transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                :class="connected ? 'bg-red-600 hover:bg-red-700' : 'bg-blue-600 hover:bg-blue-700'"
+              >
+                <i
+                  :data-lucide="connected ? 'unplug' : 'plug'"
+                  class="w-4 h-4"
+                ></i>
+                <span x-text="connected ? 'Disconnect' : 'Connect'"></span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Messages Section -->
+          <div class="bg-slate-800 border border-slate-700 rounded-lg">
+            <div class="px-6 py-4 border-b border-slate-700">
+              <div class="flex items-center justify-between">
+                <h2 class="text-lg font-medium text-white">
+                  Received Messages
+                </h2>
+                <span
+                  class="bg-slate-700 text-slate-300 px-2 py-1 rounded text-sm"
+                  x-text="messages.length"
+                ></span>
+              </div>
+            </div>
+
+            <div class="p-6">
+              <!-- Empty State -->
+              <div x-show="messages.length === 0" class="text-center py-8">
+                <i
+                  data-lucide="inbox"
+                  class="w-8 h-8 text-slate-500 mx-auto mb-2"
+                ></i>
+                <p class="text-slate-400">No messages yet</p>
+              </div>
+
+              <!-- Messages List -->
+              <div
+                x-show="messages.length > 0"
+                class="space-y-3 max-h-96 overflow-y-auto"
+              >
+                <template
+                  x-for="(message, index) in messages.slice().reverse()"
+                  :key="message.id"
+                >
+                  <div
+                    class="bg-slate-700/50 border border-slate-600 rounded-md p-4"
+                  >
+                    <div class="flex items-center justify-between mb-2">
+                      <span class="text-sm font-medium text-slate-300">
+                        Message #<span x-text="messages.length - index"></span>
+                      </span>
+                      <span
+                        class="text-xs text-slate-500"
+                        x-text="'ID: ' + message.id"
+                      ></span>
+                    </div>
+                    <div
+                      class="bg-slate-800 rounded border border-slate-600 p-3"
+                    >
+                      <pre
+                        class="text-sm text-slate-300 font-mono whitespace-pre-wrap overflow-x-auto"
+                        x-text="JSON.stringify(message.payload, null, 2)"
+                      ></pre>
+                    </div>
+                  </div>
+                </template>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -101,6 +181,12 @@
           ws: null,
           connected: false,
           messages: [],
+          channelId: "mychan",
+          publishChannelId: "mychan",
+          messagePayload: '{"message": "hello world"}',
+          publishing: false,
+          publishStatus: "",
+          publishSuccess: false,
           init() {
             this.$nextTick(() => lucide.createIcons());
           },
@@ -143,7 +229,7 @@
                 JSON.stringify({
                   id: String(requestId++),
                   method: "join",
-                  params: { channelId: "mychan", lastSeenMessageId },
+                  params: { channelId: this.channelId, lastSeenMessageId },
                 }),
               );
 
@@ -178,6 +264,54 @@
             if (this.ws) {
               this.ws.close();
               this.ws = null;
+            }
+          },
+          async publishMessage() {
+            if (!this.publishChannelId.trim() || !this.messagePayload.trim()) {
+              return;
+            }
+
+            this.publishing = true;
+            this.publishStatus = "";
+
+            try {
+              // Validate JSON
+              const payload = JSON.parse(this.messagePayload);
+
+              const response = await fetch("http://localhost:8000/push", {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                  channelId: this.publishChannelId,
+                  payload: payload,
+                }),
+              });
+
+              if (response.ok) {
+                this.publishStatus = `Message published successfully to channel "${this.publishChannelId}"`;
+                this.publishSuccess = true;
+                // Clear the payload for next message
+                this.messagePayload = '{"message": ""}';
+              } else {
+                const errorText = await response.text();
+                this.publishStatus = `Failed to publish message: ${response.status} ${errorText}`;
+                this.publishSuccess = false;
+              }
+            } catch (error) {
+              if (error instanceof SyntaxError) {
+                this.publishStatus = "Invalid JSON payload";
+              } else {
+                this.publishStatus = `Error: ${error.message}`;
+              }
+              this.publishSuccess = false;
+            } finally {
+              this.publishing = false;
+              // Clear status after 5 seconds
+              setTimeout(() => {
+                this.publishStatus = "";
+              }, 5000);
             }
           },
         };

@@ -27,6 +27,13 @@ func NewRESTServer(
 
 func (s *RESTServer) Register(router *mux.Router) {
 	router.HandleFunc("/push", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+
+		if r.Method == "OPTIONS" {
+			return
+		}
+
 		var pushRequest handler.PushRequest
 		err := json.NewDecoder(r.Body).Decode(&pushRequest)
 		if err != nil {
@@ -47,5 +54,5 @@ func (s *RESTServer) Register(router *mux.Router) {
 			http.Error(w, "failed to encode response", http.StatusInternalServerError)
 			return
 		}
-	}).Methods("POST")
+	}).Methods("POST", "OPTIONS")
 }
