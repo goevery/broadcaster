@@ -3,7 +3,6 @@ package server
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"net/http"
 	"time"
 
@@ -46,28 +45,45 @@ func (s *WebSocketServer) Register(router *mux.Router) {
 		}
 
 		connectionId := gonanoid.Must()
-		sendChan := make(chan broadcaster.Message, 1024)
+		broascasterChannel := make(chan broadcaster.Message, 1024)
+
+		rpcChannel := make(chan any, 1024)
+		defer close(rpcChannel)
 
 		broadcasterConn := broadcaster.Connection{
 			Id:   connectionId,
-			Send: sendChan,
+			Send: broascasterChannel,
 		}
 
 		ctx := broadcaster.WithConnection(r.Context(), broadcasterConn)
 
-		go s.readPump(ctx, wsConn, broadcasterConn)
-		go s.writePump(ctx, wsConn, broadcasterConn)
-	})
+		go s.readPump(ctx, wsConn, rpcChannel, connectionId)
+		go s.writePump(ctx, wsConn, rpcChannel)
 
+		for message := range broascasterChannel {
+			rawJson, err := json.Marshal(message)
+			if err != nil {
+				s.logger.Error("failed to marshal message", zap.Error(err))
+
+				return
+			}
+
+			payload := json.RawMessage(rawJson)
+			notification := handler.NewNotification("broadcast", &payload)
+
+			rpcChannel <- notification
+		}
+	})
 }
 
 func (s *WebSocketServer) readPump(
 	ctx context.Context,
 	wsConn *websocket.Conn,
-	broadcasterConn broadcaster.Connection,
+	rpcChannel chan any,
+	connectionId string,
 ) {
 	defer func() {
-		s.registry.Disconnect(broadcasterConn.Id)
+		s.registry.Disconnect(connectionId)
 	}()
 
 	wsConn.SetReadLimit(1024)
@@ -85,12 +101,8 @@ func (s *WebSocketServer) readPump(
 		wsConn.SetReadDeadline(time.Now().Add(60 * time.Second))
 
 		response := s.router.RouteRequest(ctx, request)
-
-		err = wsConn.WriteJSON(response)
-		if err != nil {
-			s.logger.Error("failed to write response", zap.Error(err))
-
-			break
+		if response != nil {
+			rpcChannel <- response
 		}
 	}
 }
@@ -98,7 +110,7 @@ func (s *WebSocketServer) readPump(
 func (s *WebSocketServer) writePump(
 	ctx context.Context,
 	wsConn *websocket.Conn,
-	broadcasterConn broadcaster.Connection,
+	rpcChannel chan any,
 ) {
 	defer func() {
 		_ = wsConn.Close()
@@ -106,7 +118,7 @@ func (s *WebSocketServer) writePump(
 
 	for {
 		select {
-		case message, ok := <-broadcasterConn.Send:
+		case message, ok := <-rpcChannel:
 			if !ok {
 				// Channel closed, close the connection
 				wsConn.WriteMessage(websocket.CloseMessage, []byte{})
@@ -114,7 +126,7 @@ func (s *WebSocketServer) writePump(
 				return
 			}
 
-			err := sendBroadcastNotification(wsConn, message)
+			err := wsConn.WriteJSON(message)
 			if err != nil {
 				s.logger.Error("failed to send broadcast notification", zap.Error(err))
 
@@ -124,21 +136,4 @@ func (s *WebSocketServer) writePump(
 			return
 		}
 	}
-}
-
-func sendBroadcastNotification(conn *websocket.Conn, message broadcaster.Message) error {
-	rawJson, err := json.Marshal(message)
-	if err != nil {
-		return fmt.Errorf("failed to marshal message: %w", err)
-	}
-
-	payload := json.RawMessage(rawJson)
-	notification := handler.NewNotification("broadcast", &payload)
-
-	err = conn.WriteJSON(notification)
-	if err != nil {
-		return fmt.Errorf("failed to write message: %w", err)
-	}
-
-	return nil
 }
