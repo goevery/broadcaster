@@ -18,7 +18,7 @@ type RPCHandlerFactory struct {
 	joinHandler          *handler.JoinHandler
 	leaveHandler         *handler.LeaveHandler
 	pushHandler          *handler.PushHandler
-	subscriptionRegistry registry.Registry
+	registry registry.Registry
 }
 
 func NewRPCHandlerFactory(
@@ -26,7 +26,7 @@ func NewRPCHandlerFactory(
 	joinHandler *handler.JoinHandler,
 	leaveHandler *handler.LeaveHandler,
 	pushHandler *handler.PushHandler,
-	subscriptionRegistry registry.Registry,
+	registry registry.Registry,
 ) *RPCHandlerFactory {
 	return &RPCHandlerFactory{
 		heartbeatHandler,
@@ -59,7 +59,7 @@ type RPCHandler struct {
 	joinHandler          *handler.JoinHandler
 	leaveHandler         *handler.LeaveHandler
 	pushHandler          *handler.PushHandler
-	subscriptionRegistry registry.Registry
+	registry registry.Registry
 	connectionInfo       registry.ConnectionInfo
 }
 

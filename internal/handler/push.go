@@ -2,11 +2,9 @@ package handler
 
 import (
 	"context"
-	"errors"
 
+	"github.com/juanpmarin/broadcaster/internal/broadcaster"
 	"github.com/juanpmarin/broadcaster/internal/persistence"
-	"github.com/juanpmarin/broadcaster/internal/protocol"
-	"github.com/juanpmarin/broadcaster/internal/registry"
 )
 
 type PushRequest struct {
@@ -17,13 +15,13 @@ type PushRequest struct {
 type PushHandler struct {
 	channelIdValidator   *ChannelIdValidator
 	persistenceEngine    persistence.Engine
-	subscriptionRegistry registry.Registry
+	subscriptionRegistry broadcaster.Registry
 }
 
 func NewPushHandler(
 	channelIdValidator *ChannelIdValidator,
 	persistenceEngine persistence.Engine,
-	subscriptionRegistry registry.Registry,
+	subscriptionRegistry broadcaster.Registry,
 ) *PushHandler {
 	return &PushHandler{
 		channelIdValidator,
@@ -32,11 +30,10 @@ func NewPushHandler(
 	}
 }
 
-func (h *PushHandler) Handle(ctx context.Context, req PushRequest) (protocol.Message, error) {
+func (h *PushHandler) Handle(ctx context.Context, req PushRequest) (broadcaster.Message, error) {
 	err := h.channelIdValidator.Validate(req.ChannelId)
 	if err != nil {
-		return protocol.Message{},
-			protocol.NewError(protocol.ErrorCodeInvalidArgument, errors.New("invalid channelId"))
+		return broadcaster.Message{}, err
 	}
 
 	message, err := h.persistenceEngine.Save(ctx, persistence.SaveRequest{
@@ -44,15 +41,10 @@ func (h *PushHandler) Handle(ctx context.Context, req PushRequest) (protocol.Mes
 		Payload:   req.Payload,
 	})
 	if err != nil {
-		return protocol.Message{}, err
+		return broadcaster.Message{}, err
 	}
 
-	// Broadcast the message to all subscribers of the channel
-	err = h.subscriptionRegistry.Broadcast(ctx, req.ChannelId, message)
-	if err != nil {
-		// Log the error but don't fail the request since message was saved successfully
-		// In production, you might want to use structured logging here
-	}
+	h.subscriptionRegistry.Broadcast(message)
 
 	return message, nil
 }

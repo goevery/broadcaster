@@ -2,160 +2,91 @@ package server
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
 	"net/http"
 	"time"
 
 	"github.com/gorilla/mux"
 	"github.com/gorilla/websocket"
 	"github.com/juanpmarin/broadcaster/internal/broadcaster"
-	"github.com/juanpmarin/broadcaster/internal/protocol"
-	"github.com/juanpmarin/broadcaster/internal/registry"
+	"github.com/juanpmarin/broadcaster/internal/handler"
 	gonanoid "github.com/matoous/go-nanoid/v2"
-	"github.com/sourcegraph/jsonrpc2"
 	"go.uber.org/zap"
 )
 
 type WebSocketServer struct {
-	logger            *zap.Logger
-	upgrader          *websocket.Upgrader
-	rpcHandlerFactory *RPCHandlerFactory
-	registry          registry.Registry
+	logger   *zap.Logger
+	upgrader *websocket.Upgrader
+	registry broadcaster.Registry
+	router   *Router
 }
 
 func NewWebSocketServer(
 	logger *zap.Logger,
 	upgrader *websocket.Upgrader,
-	rpcHandlerFactory *RPCHandlerFactory,
-	registry registry.Registry,
+	registry broadcaster.Registry,
+	router *Router,
 ) *WebSocketServer {
 	return &WebSocketServer{
 		logger,
 		upgrader,
-		rpcHandlerFactory,
 		registry,
+		router,
 	}
 }
 
 func (s *WebSocketServer) Register(router *mux.Router) {
 	router.HandleFunc("/websocket", func(w http.ResponseWriter, r *http.Request) {
-		conn, err := s.upgrader.Upgrade(w, r, nil)
+		wsConn, err := s.upgrader.Upgrade(w, r, nil)
 		if err != nil {
 			s.logger.Warn("failed to upgrade to websocket", zap.Error(err))
 
 			return
 		}
 
-		err = s.setupConnection(r, conn)
-		if err != nil {
-			s.logger.Error("failed to set up websocket connection", zap.Error(err))
-			conn.Close()
+		connectionId := gonanoid.Must()
+		sendChan := make(chan broadcaster.Message, 1024)
 
-			return
+		broadcasterConn := broadcaster.Connection{
+			Id:   connectionId,
+			Send: sendChan,
 		}
 
-		connectionId, err := registry.GenerateConnectionId()
-		if err != nil {
-			s.logger.Error("failed to generate connection ID", zap.Error(err))
-			conn.Close()
-			return
-		}
+		ctx := broadcaster.WithConnection(r.Context(), broadcasterConn)
 
-		// Get client IP from request
-		clientIp := r.RemoteAddr
-		if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
-			clientIp = xff
-		}
-
-		s.logger.Info("websocket connection established",
-			zap.String("connectionId", connectionId),
-			zap.String("clientIp", clientIp))
-
-		conn.SetReadLimit(1024)
-
-		handlerLogger := s.logger.With(
-			zap.String("connectionId", connectionId),
-			zap.String("clientIp", clientIp))
-
-		// Create handler first
-		jsonrpcHandler := s.rpcHandlerFactory.New(handlerLogger)
-
-		jsonrpcConn := jsonrpc2.NewConn(
-			r.Context(),
-			NewWebSocketObjectStream(conn),
-			jsonrpcHandler,
-			jsonrpc2.SetLogger(jsonrpcHandler),
-		)
-
-		// Create connection info with jsonrpc connection
-		connInfo := registry.ConnectionInfo{
-			Id:         connectionId,
-			ClientIp:   clientIp,
-			UserId:     "", // Can be set later based on authentication
-			Connection: jsonrpcConn,
-		}
-
-		// Set connection info on handler
-		jsonrpcHandler.SetConnectionInfo(connInfo)
-
-		// Add connection info to context
-		ctx := registry.WithConnectionInfo(r.Context(), connInfo)
-
-		<-jsonrpcConn.DisconnectNotify()
-
-		// Clean up subscriptions when connection closes
-		err = s.registry.UnsubscribeAll(ctx, connectionId)
-		if err != nil {
-			s.logger.Error("failed to clean up subscriptions",
-				zap.String("connectionId", connectionId),
-				zap.Error(err))
-		}
-
-		s.logger.Info("websocket connection closed",
-			zap.String("connectionId", connectionId))
+		go s.readPump(ctx, wsConn, broadcasterConn)
+		go s.writePump(ctx, wsConn, broadcasterConn)
 	})
 
 }
 
-func (s *WebSocketServer) setupConnection(ctx context.Context, r *http.Request, conn *websocket.Conn) error {
-	connectionId := gonanoid.Must()
-	sendChan := make(chan broadcaster.Message, 1024)
+func (s *WebSocketServer) readPump(
+	ctx context.Context,
+	wsConn *websocket.Conn,
+	broadcasterConn broadcaster.Connection,
+) {
+	defer func() {
+		s.registry.Disconnect(broadcasterConn.Id)
+	}()
 
-	connection := broadcaster.Connection{
-		Id:   connectionId,
-		Send: sendChan,
-	}
-
-	ctx = broadcaster.WithConnection(ctx, connection)
-
-	return nil
-}
-
-func (s *WebSocketServer) readPump(conn *websocket.Conn) {
-	defer conn.Close()
-
-	conn.SetReadLimit(1024)
-	conn.SetReadDeadline(time.Now().Add(60 * time.Second))
+	wsConn.SetReadLimit(1024)
+	wsConn.SetReadDeadline(time.Now().Add(60 * time.Second))
 
 	for {
-		var request protocol.Request
-		err := conn.ReadJSON(&request)
+		var request handler.Request
+		err := wsConn.ReadJSON(&request)
 		if err != nil {
 			s.logger.Error("failed to read request", zap.Error(err))
 
 			break
 		}
 
-		conn.SetReadDeadline(time.Now().Add(60 * time.Second))
+		wsConn.SetReadDeadline(time.Now().Add(60 * time.Second))
 
-		ctx := context.Background()
-		response, err := s.handleRequest(ctx, request)
-		if err != nil {
-			s.logger.Error("failed to handle request", zap.Error(err))
+		response := s.router.RouteRequest(ctx, request)
 
-			continue
-		}
-
-		err = conn.WriteJSON(response)
+		err = wsConn.WriteJSON(response)
 		if err != nil {
 			s.logger.Error("failed to write response", zap.Error(err))
 
@@ -164,6 +95,50 @@ func (s *WebSocketServer) readPump(conn *websocket.Conn) {
 	}
 }
 
-func (s *WebSocketServer) handleRequest(ctx context.Context, request protocol.Request) (protocol.Response, error) {
-	return protocol.Response{}, nil
+func (s *WebSocketServer) writePump(
+	ctx context.Context,
+	wsConn *websocket.Conn,
+	broadcasterConn broadcaster.Connection,
+) {
+	defer func() {
+		_ = wsConn.Close()
+	}()
+
+	for {
+		select {
+		case message, ok := <-broadcasterConn.Send:
+			if !ok {
+				// Channel closed, close the connection
+				wsConn.WriteMessage(websocket.CloseMessage, []byte{})
+
+				return
+			}
+
+			err := sendBroadcastNotification(wsConn, message)
+			if err != nil {
+				s.logger.Error("failed to send broadcast notification", zap.Error(err))
+
+				return
+			}
+		case <-ctx.Done():
+			return
+		}
+	}
+}
+
+func sendBroadcastNotification(conn *websocket.Conn, message broadcaster.Message) error {
+	rawJson, err := json.Marshal(message)
+	if err != nil {
+		return fmt.Errorf("failed to marshal message: %w", err)
+	}
+
+	payload := json.RawMessage(rawJson)
+	notification := handler.NewNotification("broadcast", &payload)
+
+	err = conn.WriteJSON(notification)
+	if err != nil {
+		return fmt.Errorf("failed to write message: %w", err)
+	}
+
+	return nil
 }

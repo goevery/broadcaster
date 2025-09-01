@@ -12,10 +12,10 @@ import (
 	"github.com/Netflix/go-env"
 	"github.com/gorilla/mux"
 	"github.com/gorilla/websocket"
+	"github.com/juanpmarin/broadcaster/internal/broadcaster"
 	"github.com/juanpmarin/broadcaster/internal/handler"
 	"github.com/juanpmarin/broadcaster/internal/persistence"
 	"github.com/juanpmarin/broadcaster/internal/persistence/mongodb"
-	"github.com/juanpmarin/broadcaster/internal/registry"
 	"github.com/juanpmarin/broadcaster/internal/server"
 	"go.mongodb.org/mongo-driver/v2/mongo"
 	"go.mongodb.org/mongo-driver/v2/mongo/options"
@@ -23,12 +23,11 @@ import (
 )
 
 type App struct {
-	logger               *zap.Logger
-	settings             Settings
-	websocketServer      *server.WebSocketServer
-	restServer           *server.RESTServer
-	persistenceEngine    persistence.Engine
-	subscriptionRegistry registry.Registry
+	logger            *zap.Logger
+	settings          Settings
+	websocketServer   *server.WebSocketServer
+	restServer        *server.RESTServer
+	persistenceEngine persistence.Engine
 }
 
 func NewApp(logger *zap.Logger, settings Settings) *App {
@@ -49,25 +48,26 @@ func NewApp(logger *zap.Logger, settings Settings) *App {
 	}
 
 	persistenceEngine := mongodb.NewPersistenceEngine(client)
-	subscriptionRegistry := registry.NewInMemoryRegistry(logger)
+	registry := broadcaster.NewInMemoryRegistry(logger)
 
 	heartbeatHandler := handler.NewHeartbeatHandler()
-	joinHandler := handler.NewJoinHandler(channelIdValidator, persistenceEngine, subscriptionRegistry)
-	leaveHandler := handler.NewLeaveHandler(channelIdValidator, subscriptionRegistry)
-	pushHandler := handler.NewPushHandler(channelIdValidator, persistenceEngine, subscriptionRegistry)
+	joinHandler := handler.NewJoinHandler(channelIdValidator, persistenceEngine, registry)
+	leaveHandler := handler.NewLeaveHandler(channelIdValidator, registry)
+	pushHandler := handler.NewPushHandler(channelIdValidator, persistenceEngine, registry)
 
-	rpcHandlerFactory := server.NewRPCHandlerFactory(
+	router := server.NewRouter(
+		logger,
 		heartbeatHandler,
 		joinHandler,
 		leaveHandler,
 		pushHandler,
-		subscriptionRegistry,
 	)
+
 	websocketServer := server.NewWebSocketServer(
 		logger,
 		websocketUpgrader,
-		rpcHandlerFactory,
-		subscriptionRegistry,
+		registry,
+		router,
 	)
 	restServer := server.NewRESTServer(
 		logger,
@@ -80,7 +80,6 @@ func NewApp(logger *zap.Logger, settings Settings) *App {
 		websocketServer,
 		restServer,
 		persistenceEngine,
-		subscriptionRegistry,
 	}
 }
 

@@ -4,8 +4,8 @@ import (
 	"context"
 	"time"
 
+	"github.com/juanpmarin/broadcaster/internal/broadcaster"
 	"github.com/juanpmarin/broadcaster/internal/persistence"
-	"github.com/juanpmarin/broadcaster/internal/protocol"
 	"go.mongodb.org/mongo-driver/v2/bson"
 	"go.mongodb.org/mongo-driver/v2/mongo"
 	"go.mongodb.org/mongo-driver/v2/mongo/options"
@@ -49,7 +49,7 @@ func (e *PersistenceEngine) Setup(ctx context.Context) error {
 	return err
 }
 
-func (e *PersistenceEngine) Save(ctx context.Context, message persistence.SaveRequest) (protocol.Message, error) {
+func (e *PersistenceEngine) Save(ctx context.Context, message persistence.SaveRequest) (broadcaster.Message, error) {
 	createTime := time.Now()
 
 	result, err := e.collection.InsertOne(ctx, bson.D{
@@ -58,7 +58,7 @@ func (e *PersistenceEngine) Save(ctx context.Context, message persistence.SaveRe
 		{Key: "payload", Value: message.Payload},
 	})
 
-	return protocol.Message{
+	return broadcaster.Message{
 		Id:         result.InsertedID.(bson.ObjectID).Hex(),
 		CreateTime: createTime,
 		ChannelId:  message.ChannelId,
@@ -66,7 +66,7 @@ func (e *PersistenceEngine) Save(ctx context.Context, message persistence.SaveRe
 	}, err
 }
 
-func (e *PersistenceEngine) List(ctx context.Context, channelId string, lastSeenId string) ([]protocol.Message, error) {
+func (e *PersistenceEngine) List(ctx context.Context, channelId string, lastSeenId string) ([]broadcaster.Message, error) {
 	lastSeenObjectId, err := bson.ObjectIDFromHex(lastSeenId)
 	if err != nil {
 		return nil, err
@@ -76,7 +76,9 @@ func (e *PersistenceEngine) List(ctx context.Context, channelId string, lastSeen
 		"_id":       bson.M{"$gt": lastSeenObjectId},
 		"channelId": channelId,
 	}
-	opts := options.Find().SetSort(bson.D{{Key: "_id", Value: -1}})
+	opts := options.Find().
+		SetSort(bson.D{{Key: "_id", Value: -1}}).
+		SetLimit(100)
 
 	result, err := e.collection.Find(ctx, filter, opts)
 	if err != nil {
@@ -89,9 +91,9 @@ func (e *PersistenceEngine) List(ctx context.Context, channelId string, lastSeen
 		return nil, err
 	}
 
-	messages := make([]protocol.Message, len(mongoMessages))
+	messages := make([]broadcaster.Message, len(mongoMessages))
 	for i, m := range mongoMessages {
-		messages[i] = protocol.Message{
+		messages[i] = broadcaster.Message{
 			Id:        m.Id.Hex(),
 			ChannelId: m.ChannelId,
 			Payload:   m.Payload,

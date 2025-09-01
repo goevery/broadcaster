@@ -5,9 +5,8 @@ import (
 	"errors"
 	"time"
 
+	"github.com/juanpmarin/broadcaster/internal/broadcaster"
 	"github.com/juanpmarin/broadcaster/internal/persistence"
-	"github.com/juanpmarin/broadcaster/internal/protocol"
-	"github.com/juanpmarin/broadcaster/internal/registry"
 )
 
 type JoinRequest struct {
@@ -16,21 +15,22 @@ type JoinRequest struct {
 }
 
 type JoinResponse struct {
-	Timestamp      time.Time          `json:"timestamp"`
-	History        []protocol.Message `json:"history"`
-	SubscriptionId string             `json:"subscriptionId,omitempty"`
+	SubscriptionId   string                `json:"subscriptionId,omitempty"`
+	Timestamp        time.Time             `json:"timestamp"`
+	History          []broadcaster.Message `json:"history,omitempty"`
+	HistoryRecovered bool                  `json:"historyRecovered"`
 }
 
 type JoinHandler struct {
 	channelIdValidator   *ChannelIdValidator
 	persistenceEngine    persistence.Engine
-	subscriptionRegistry registry.Registry
+	subscriptionRegistry broadcaster.Registry
 }
 
 func NewJoinHandler(
 	channelIdValidator *ChannelIdValidator,
 	persistenceEngine persistence.Engine,
-	subscriptionRegistry registry.Registry,
+	subscriptionRegistry broadcaster.Registry,
 ) *JoinHandler {
 
 	return &JoinHandler{
@@ -43,36 +43,41 @@ func NewJoinHandler(
 func (h *JoinHandler) Handle(ctx context.Context, req JoinRequest) (JoinResponse, error) {
 	err := h.channelIdValidator.Validate(req.ChannelId)
 	if err != nil {
-		return JoinResponse{},
-			protocol.NewError(protocol.ErrorCodeInvalidArgument, errors.New("invalid channelId"))
+		return JoinResponse{}, err
 	}
 
-	var history []protocol.Message
+	var history []broadcaster.Message
+	historyRecovered := false
 
 	if req.LastSeenMessageId != "" {
 		history, err = h.persistenceEngine.List(ctx, req.ChannelId, req.LastSeenMessageId)
 		if err != nil {
 			return JoinResponse{}, err
 		}
+
+		for _, msg := range history {
+			if msg.Id == req.LastSeenMessageId {
+				historyRecovered = true
+				break
+			}
+		}
 	}
 
-	response := JoinResponse{
-		Timestamp: time.Now(),
-		History:   history,
-	}
-
-	// Subscribe the connection to the channel - connection info MUST be available
-	connInfo, ok := registry.ConnectionInfoFromContext(ctx)
+	connection, ok := broadcaster.ConnectionFromContext(ctx)
 	if !ok {
 		return JoinResponse{},
-			protocol.NewError(protocol.ErrorCodeInvalidArgument, errors.New("connection info not available"))
+			NewError(ErrorCodeFailedPrecondition, errors.New("connection info not available"))
 	}
 
-	subscription, err := h.subscriptionRegistry.Subscribe(ctx, req.ChannelId, connInfo)
+	err = h.subscriptionRegistry.Register(req.ChannelId, connection)
 	if err != nil {
 		return JoinResponse{}, err
 	}
-	response.SubscriptionId = subscription.ConnectionInfo.Id
 
-	return response, nil
+	return JoinResponse{
+		SubscriptionId:   connection.Id,
+		Timestamp:        time.Now(),
+		History:          history,
+		HistoryRecovered: historyRecovered,
+	}, nil
 }

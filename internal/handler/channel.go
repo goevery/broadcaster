@@ -3,8 +3,6 @@ package handler
 import (
 	"errors"
 	"regexp"
-
-	"github.com/juanpmarin/broadcaster/internal/protocol"
 )
 
 type ChannelIdValidator struct {
@@ -20,7 +18,7 @@ func NewChannelIdValidator() *ChannelIdValidator {
 func (v *ChannelIdValidator) Validate(channelId string) error {
 	valid := v.channelIdRegex.MatchString(channelId)
 	if !valid {
-		return protocol.NewError(protocol.ErrorCodeInvalidArgument, errors.New("invalid channelId"))
+		return NewError(ErrorCodeInvalidArgument, errors.New("invalid channelId"))
 	}
 
 	return nil

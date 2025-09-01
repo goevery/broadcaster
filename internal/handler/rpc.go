@@ -1,4 +1,4 @@
-package rpc
+package handler
 
 import "encoding/json"
 
@@ -6,6 +6,13 @@ type Request struct {
 	Id     string           `json:"id,omitempty"`
 	Method string           `json:"method"`
 	Params *json.RawMessage `json:"params,omitempty"`
+}
+
+func NewNotification(method string, params *json.RawMessage) Request {
+	return Request{
+		Method: method,
+		Params: params,
+	}
 }
 
 func (r Request) ReplyExpected() bool {
@@ -39,11 +46,11 @@ func (r Response) IsFailure() bool {
 type ErrorCode string
 
 const (
-	ErrorCodeParseError     ErrorCode = "ParseError"
-	ErrorCodeInvalidRequest ErrorCode = "InvalidRequest"
-	ErrorCodeMethodNotFound ErrorCode = "MethodNotFound"
-	ErrorCodeInvalidParams  ErrorCode = "InvalidParams"
-	ErrorCodeInternalError  ErrorCode = "InternalError"
+	ErrorCodeInvalidArgument    ErrorCode = "InvalidArgument"
+	ErrorCodeNotFound           ErrorCode = "NotFound"
+	ErrorCodeAlreadyExists      ErrorCode = "AlreadyExists"
+	ErrorCodeFailedPrecondition ErrorCode = "FailedPrecondition"
+	ErrorCodeInternal           ErrorCode = "Internal"
 )
 
 type Error struct {
