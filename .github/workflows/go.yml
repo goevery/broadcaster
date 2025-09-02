@@ -34,7 +34,20 @@ jobs:
       - name: Test
         run: go test -v ./...
 
+      - name: Determine image tag
+        id: tagger
+        if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/')
+        run: |
+          if [[ "${GITHUB_REF}" == refs/tags/* ]]; then
+            TAG=${GITHUB_REF#refs/tags/}
+          else
+            TAG="prev-$(git rev-parse --short HEAD)"
+          fi
+
+          echo "TAG=$TAG" >> $GITHUB_ENV
+          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
+
       - name: Build
         env:
           KO_DOCKER_REPO: us-docker.pkg.dev/every-oss/broadcaster/server
-        run: ko build --bare ./cmd/broadcaster
+        run: ko build --bare --tags="${TAG},latest" ./cmd/broadcaster
