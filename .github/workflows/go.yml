@@ -20,8 +20,21 @@ jobs:
       - name: Set up Ko
         uses: ko-build/setup-ko@v0.9
 
+      - name: Authenticate to GCP
+        uses: "google-github-actions/auth@v2"
+        with:
+          credentials_json: ${{ secrets.GCP_CREDENTIALS }}
+
+      - name: "Set up Cloud CLI"
+        uses: "google-github-actions/setup-gcloud@v2"
+
+      - name: "Docker authentication"
+        run: "gcloud auth configure-docker us-docker.pkg.dev"
+
       - name: Test
         run: go test -v ./...
 
       - name: Build
-        run: ko build -v ./cmd/broadcaster
+        env:
+          KO_DOCKER_REPO: us-docker.pkg.dev/every-oss/broadcaster/server
+        run: ko build --bare ./cmd/broadcaster
