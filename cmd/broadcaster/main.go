@@ -54,7 +54,7 @@ func NewApp(logger *zap.Logger, settings Settings) *App {
 	joinHandler := handler.NewJoinHandler(channelIdValidator, persistenceEngine, registry)
 	leaveHandler := handler.NewLeaveHandler(channelIdValidator, registry)
 	pushHandler := handler.NewPushHandler(channelIdValidator, persistenceEngine, registry)
-	authHandler := handler.NewAuthHandler("broadcaster")
+	authHandler := handler.NewAuthHandler(settings.JWTSecret)
 
 	router := server.NewRouter(
 		logger,
