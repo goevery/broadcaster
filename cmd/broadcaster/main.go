@@ -102,7 +102,9 @@ func (a *App) startHttpServer(ctx context.Context) {
 
 	address := fmt.Sprintf("0.0.0.0:%d", a.settings.Port)
 
-	router := mux.NewRouter()
+	router := mux.NewRouter().
+		PathPrefix(a.settings.BasePath).
+		Subrouter()
 
 	a.websocketServer.Register(router)
 	a.restServer.Register(router)
