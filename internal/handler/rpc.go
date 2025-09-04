@@ -3,7 +3,7 @@ package handler
 import "encoding/json"
 
 type Request struct {
-	Id     string           `json:"id,omitempty"`
+	Id     int              `json:"id,omitempty"`
 	Method string           `json:"method"`
 	Params *json.RawMessage `json:"params,omitempty"`
 }
@@ -16,7 +16,7 @@ func NewNotification(method string, params *json.RawMessage) Request {
 }
 
 func (r Request) ReplyExpected() bool {
-	return r.Id != ""
+	return r.Id != 0
 }
 
 func (r Request) Reply(result *json.RawMessage) Response {
@@ -34,7 +34,7 @@ func (r Request) ReplyWithError(err Error) Response {
 }
 
 type Response struct {
-	RequestId string           `json:"requestId,omitempty"`
+	RequestId int              `json:"requestId,omitempty"`
 	Result    *json.RawMessage `json:"result,omitempty"`
 	Error     *Error           `json:"error,omitempty"`
 }

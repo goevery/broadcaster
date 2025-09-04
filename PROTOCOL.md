@@ -19,7 +19,7 @@ The protocol uses a JSON-RPC-inspired message format with two types of messages:
 
 ```json
 {
-  "id": "unique-request-id",     // Optional: present for requests expecting replies
+  "id": 123,                     // Optional: present for requests expecting replies
   "method": "method-name",       // Required: the operation to perform
   "params": { ... }              // Optional: method-specific parameters
 }
@@ -29,7 +29,7 @@ The protocol uses a JSON-RPC-inspired message format with two types of messages:
 
 ```json
 {
-  "requestId": "original-request-id",  // Required: matches the request ID
+  "requestId": 123,                    // Required: matches the request ID
   "result": { ... },                   // Optional: success result
   "error": {                           // Optional: error information
     "code": "ErrorCode",
@@ -92,7 +92,7 @@ The JWT token must include:
 
 ```json
 {
-  "id": "auth-1",
+  "id": 1,
   "method": "auth",
   "params": {
     "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
@@ -148,7 +148,7 @@ Valid examples:
 
 ```json
 {
-  "id": "join-1",
+  "id": 2,
   "method": "join",
   "params": {
     "channelId": "general",
@@ -181,7 +181,7 @@ Valid examples:
 
 ```json
 {
-  "id": "leave-1",
+  "id": 3,
   "method": "leave",
   "params": {
     "channelId": "general"
@@ -217,7 +217,7 @@ Valid examples:
 
 ```json
 {
-  "id": "push-1",
+  "id": 4,
   "method": "push",
   "params": {
     "channelId": "general",
@@ -266,7 +266,7 @@ When a message is pushed to a channel, it's automatically broadcast to all subsc
 
 ```json
 {
-  "id": "ping-1",
+  "id": 5,
   "method": "heartbeat"
 }
 ```
@@ -310,7 +310,7 @@ When a message is pushed to a channel, it's automatically broadcast to all subsc
 
    ```json
    {
-     "requestId": "join-1",
+     "requestId": 2,
      "error": {
        "code": "Unauthenticated",
        "message": "user not authorized to access this channel"
@@ -322,7 +322,7 @@ When a message is pushed to a channel, it's automatically broadcast to all subsc
 
    ```json
    {
-     "requestId": "join-1",
+     "requestId": 2,
      "error": {
        "code": "InvalidArgument",
        "message": "invalid channelId"
@@ -333,7 +333,7 @@ When a message is pushed to a channel, it's automatically broadcast to all subsc
 3. **Already Authenticated**:
    ```json
    {
-     "requestId": "auth-2",
+     "requestId": 6,
      "error": {
        "code": "FailedPrecondition",
        "message": "connection is already authenticated"

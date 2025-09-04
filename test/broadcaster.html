@@ -421,7 +421,7 @@
               };
 
               if (expectReply) {
-                request.id = String(this.requestId++);
+                request.id = this.requestId++;
                 this.pendingRequests.set(request.id, {
                   resolve,
                   reject,
