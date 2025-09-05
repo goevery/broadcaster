@@ -14,20 +14,15 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/juanpmarin/broadcaster/internal/broadcaster"
 	"github.com/juanpmarin/broadcaster/internal/handler"
-	"github.com/juanpmarin/broadcaster/internal/persistence"
-	"github.com/juanpmarin/broadcaster/internal/persistence/mongodb"
 	"github.com/juanpmarin/broadcaster/internal/server"
-	"go.mongodb.org/mongo-driver/v2/mongo"
-	"go.mongodb.org/mongo-driver/v2/mongo/options"
 	"go.uber.org/zap"
 )
 
 type App struct {
-	logger            *zap.Logger
-	settings          Settings
-	websocketServer   *server.WebSocketServer
-	restServer        *server.RESTServer
-	persistenceEngine persistence.Engine
+	logger          *zap.Logger
+	settings        Settings
+	websocketServer *server.WebSocketServer
+	restServer      *server.RESTServer
 }
 
 func NewApp(logger *zap.Logger, settings Settings) *App {
@@ -40,20 +35,12 @@ func NewApp(logger *zap.Logger, settings Settings) *App {
 	}
 
 	channelIdValidator := handler.NewChannelIdValidator()
-
-	client, err := mongo.Connect(options.Client().
-		ApplyURI(settings.MongoDbUri))
-	if err != nil {
-		logger.Fatal("failed to connect to mongodb", zap.Error(err))
-	}
-
-	persistenceEngine := mongodb.NewPersistenceEngine(client)
 	registry := broadcaster.NewInMemoryRegistry(logger)
 
 	heartbeatHandler := handler.NewHeartbeatHandler()
-	joinHandler := handler.NewJoinHandler(channelIdValidator, persistenceEngine, registry)
+	joinHandler := handler.NewJoinHandler(channelIdValidator, registry)
 	leaveHandler := handler.NewLeaveHandler(channelIdValidator, registry)
-	pushHandler := handler.NewPushHandler(channelIdValidator, persistenceEngine, registry)
+	pushHandler := handler.NewPushHandler(channelIdValidator, registry)
 	authHandler := handler.NewAuthHandler(settings.JWTSecret)
 
 	router := server.NewRouter(
@@ -81,16 +68,10 @@ func NewApp(logger *zap.Logger, settings Settings) *App {
 		settings,
 		websocketServer,
 		restServer,
-		persistenceEngine,
 	}
 }
 
 func (a *App) setup(ctx context.Context) error {
-	err := a.persistenceEngine.Setup(ctx)
-	if err != nil {
-		return err
-	}
-
 	a.startHttpServer(ctx)
 
 	return nil

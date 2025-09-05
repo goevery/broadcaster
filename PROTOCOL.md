@@ -121,8 +121,7 @@ Valid examples:
 
 ```json
 {
-  "channelId": "channel-name",
-  "lastSeenMessageId": "message-id" // Optional: for message history recovery
+  "channelId": "channel-name"
 }
 ```
 
@@ -131,16 +130,7 @@ Valid examples:
 ```json
 {
   "subscriptionId": "connection-id",
-  "timestamp": "2024-01-15T10:30:00Z",
-  "history": [                       // Messages since lastSeenMessageId
-    {
-      "id": "msg-123",
-      "createTime": "2024-01-15T10:25:00Z",
-      "channelId": "channel-name",
-      "payload": { ... }
-    }
-  ],
-  "historyRecovered": true           // Whether lastSeenMessageId was found
+  "timestamp": "2024-01-15T10:30:00Z"
 }
 ```
 
@@ -151,8 +141,7 @@ Valid examples:
   "id": 2,
   "method": "join",
   "params": {
-    "channelId": "general",
-    "lastSeenMessageId": "msg-456"
+    "channelId": "general"
   }
 }
 ```
@@ -285,13 +274,6 @@ When a message is pushed to a channel, it's automatically broadcast to all subsc
 - Authorization is checked on every channel operation
 - Users can only push messages to channels they're authorized to access
 
-### Message History
-
-- When joining a channel with `lastSeenMessageId`, the server returns:
-  - All messages after that ID if the ID is found (`historyRecovered: true`)
-  - Empty history if the ID is not found (`historyRecovered: false`)
-- History helps clients recover missed messages during reconnections
-
 ## Connection Lifecycle
 
 1. **Establish WebSocket connection**
@@ -344,7 +326,6 @@ When a message is pushed to a channel, it's automatically broadcast to all subsc
 ## Implementation Notes
 
 - The protocol is stateful - connections maintain authentication and subscription state
-- Message persistence is handled server-side, enabling message history recovery
 - Channel subscriptions are per-connection, not per-user
 - The protocol supports both request-response and notification patterns
 - All timestamps use RFC3339 format in UTC

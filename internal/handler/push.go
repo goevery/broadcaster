@@ -2,9 +2,10 @@ package handler
 
 import (
 	"context"
+	"time"
 
 	"github.com/juanpmarin/broadcaster/internal/broadcaster"
-	"github.com/juanpmarin/broadcaster/internal/persistence"
+	gonanoid "github.com/matoous/go-nanoid/v2"
 )
 
 type PushRequest struct {
@@ -14,18 +15,15 @@ type PushRequest struct {
 
 type PushHandler struct {
 	channelIdValidator   *ChannelIdValidator
-	persistenceEngine    persistence.Engine
 	subscriptionRegistry broadcaster.Registry
 }
 
 func NewPushHandler(
 	channelIdValidator *ChannelIdValidator,
-	persistenceEngine persistence.Engine,
 	subscriptionRegistry broadcaster.Registry,
 ) *PushHandler {
 	return &PushHandler{
 		channelIdValidator,
-		persistenceEngine,
 		subscriptionRegistry,
 	}
 }
@@ -36,12 +34,11 @@ func (h *PushHandler) Handle(ctx context.Context, req PushRequest) (broadcaster.
 		return broadcaster.Message{}, err
 	}
 
-	message, err := h.persistenceEngine.Save(ctx, persistence.SaveRequest{
-		ChannelId: req.ChannelId,
-		Payload:   req.Payload,
-	})
-	if err != nil {
-		return broadcaster.Message{}, err
+	message := broadcaster.Message{
+		Id:         gonanoid.Must(),
+		CreateTime: time.Now(),
+		ChannelId:  req.ChannelId,
+		Payload:    req.Payload,
 	}
 
 	h.subscriptionRegistry.Broadcast(message)
