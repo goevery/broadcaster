@@ -7,8 +7,8 @@ import (
 	"slices"
 	"time"
 
+	"github.com/goevery/broadcaster/internal/ierr"
 	"github.com/golang-jwt/jwt/v5"
-	"github.com/juanpmarin/broadcaster/internal/ierr"
 )
 
 type Claims struct {

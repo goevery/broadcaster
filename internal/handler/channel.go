@@ -4,7 +4,7 @@ import (
 	"errors"
 	"regexp"
 
-	"github.com/juanpmarin/broadcaster/internal/ierr"
+	"github.com/goevery/broadcaster/internal/ierr"
 )
 
 type ChannelIdValidator struct {

@@ -5,9 +5,9 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/goevery/broadcaster/internal/auth"
+	"github.com/goevery/broadcaster/internal/handler"
 	"github.com/gorilla/mux"
-	"github.com/juanpmarin/broadcaster/internal/auth"
-	"github.com/juanpmarin/broadcaster/internal/handler"
 	"go.uber.org/zap"
 )
 

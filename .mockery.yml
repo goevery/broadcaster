@@ -1,5 +1,5 @@
 filename: mocks.go
 packages:
-  github.com/juanpmarin/broadcaster/internal/broadcaster:
+  github.com/goevery/broadcaster/internal/broadcaster:
     config:
       all: true

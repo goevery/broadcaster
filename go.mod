@@ -1,4 +1,4 @@
-module github.com/juanpmarin/broadcaster
+module github.com/goevery/broadcaster
 
 go 1.24
 

@@ -3,7 +3,7 @@ package handler
 import (
 	"encoding/json"
 
-	"github.com/juanpmarin/broadcaster/internal/ierr"
+	"github.com/goevery/broadcaster/internal/ierr"
 )
 
 type Request struct {

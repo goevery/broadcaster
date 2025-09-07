@@ -4,8 +4,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/goevery/broadcaster/internal/ierr"
 	"github.com/golang-jwt/jwt/v5"
-	"github.com/juanpmarin/broadcaster/internal/ierr"
 	"github.com/stretchr/testify/assert"
 )
 

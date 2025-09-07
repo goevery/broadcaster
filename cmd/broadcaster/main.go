@@ -10,12 +10,12 @@ import (
 	"time"
 
 	"github.com/Netflix/go-env"
+	"github.com/goevery/broadcaster/internal/auth"
+	"github.com/goevery/broadcaster/internal/broadcaster"
+	"github.com/goevery/broadcaster/internal/handler"
+	"github.com/goevery/broadcaster/internal/server"
 	"github.com/gorilla/mux"
 	"github.com/gorilla/websocket"
-	"github.com/juanpmarin/broadcaster/internal/auth"
-	"github.com/juanpmarin/broadcaster/internal/broadcaster"
-	"github.com/juanpmarin/broadcaster/internal/handler"
-	"github.com/juanpmarin/broadcaster/internal/server"
 	"go.uber.org/zap"
 )
 

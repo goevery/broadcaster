@@ -5,9 +5,9 @@ import (
 	"errors"
 	"time"
 
-	"github.com/juanpmarin/broadcaster/internal/auth"
-	"github.com/juanpmarin/broadcaster/internal/broadcaster"
-	"github.com/juanpmarin/broadcaster/internal/ierr"
+	"github.com/goevery/broadcaster/internal/auth"
+	"github.com/goevery/broadcaster/internal/broadcaster"
+	"github.com/goevery/broadcaster/internal/ierr"
 	gonanoid "github.com/matoous/go-nanoid/v2"
 )
 

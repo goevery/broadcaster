@@ -4,7 +4,7 @@ import (
 	"context"
 	"sync"
 
-	"github.com/juanpmarin/broadcaster/internal/auth"
+	"github.com/goevery/broadcaster/internal/auth"
 )
 
 type Connection struct {

@@ -63,21 +63,21 @@ The protocol uses a JSON-RPC-inspired message format.
 
 **Request**:
 
-```json
+```jsonc
 {
-  "id": 123,                  // Optional: for requests expecting a reply
-  "method": "method-name",    // Required
-  "params": { ... }           // Optional
+  "id": 123, // Optional: for requests expecting a reply
+  "method": "method-name", // Required
+  "params": { "foo": "bar" }, // Optional
 }
 ```
 
 **Response**:
 
-```json
+```jsonc
 {
-  "requestId": 123,         // Required: matches the request ID
-  "result": { ... },        // Optional: success result
-  "error": { ... }          // Optional: error information
+  "requestId": 123, // Required: matches the request ID
+  "result": { "foo": "bar" }, // Optional: success result
+  "error": { "code": "...", "message": "..." }, // Optional: error information
 }
 ```
 
@@ -160,10 +160,10 @@ Errors are returned in the `error` field of the response message.
 
 **Error Object**:
 
-```json
+```jsonc
 {
   "code": "ErrorCode",
-  "message": "Error description"
+  "message": "Error description",
 }
 ```
 

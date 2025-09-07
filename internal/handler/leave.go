@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 
-	"github.com/juanpmarin/broadcaster/internal/broadcaster"
+	"github.com/goevery/broadcaster/internal/broadcaster"
 )
 
 type LeaveRequest struct {

@@ -5,8 +5,8 @@ import (
 	"errors"
 	"time"
 
-	"github.com/juanpmarin/broadcaster/internal/broadcaster"
-	"github.com/juanpmarin/broadcaster/internal/ierr"
+	"github.com/goevery/broadcaster/internal/broadcaster"
+	"github.com/goevery/broadcaster/internal/ierr"
 )
 
 type JoinRequest struct {

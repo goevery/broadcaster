@@ -7,12 +7,12 @@ import (
 	"testing"
 	"time"
 
+	"github.com/goevery/broadcaster/internal/auth"
+	"github.com/goevery/broadcaster/internal/broadcaster"
+	"github.com/goevery/broadcaster/internal/handler"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/gorilla/mux"
 	"github.com/gorilla/websocket"
-	"github.com/juanpmarin/broadcaster/internal/auth"
-	"github.com/juanpmarin/broadcaster/internal/broadcaster"
-	"github.com/juanpmarin/broadcaster/internal/handler"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/zap"
 )

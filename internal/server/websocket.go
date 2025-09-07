@@ -6,10 +6,10 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/goevery/broadcaster/internal/broadcaster"
+	"github.com/goevery/broadcaster/internal/handler"
 	"github.com/gorilla/mux"
 	"github.com/gorilla/websocket"
-	"github.com/juanpmarin/broadcaster/internal/broadcaster"
-	"github.com/juanpmarin/broadcaster/internal/handler"
 	gonanoid "github.com/matoous/go-nanoid/v2"
 	"go.uber.org/zap"
 )

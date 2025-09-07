@@ -5,8 +5,8 @@ import (
 	"encoding/json"
 	"errors"
 
-	"github.com/juanpmarin/broadcaster/internal/handler"
-	"github.com/juanpmarin/broadcaster/internal/ierr"
+	"github.com/goevery/broadcaster/internal/handler"
+	"github.com/goevery/broadcaster/internal/ierr"
 	"go.uber.org/zap"
 )
 
