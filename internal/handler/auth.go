@@ -3,10 +3,10 @@ package handler
 import (
 	"context"
 	"errors"
-	"time"
 
-	"github.com/golang-jwt/jwt/v5"
+	"github.com/juanpmarin/broadcaster/internal/auth"
 	"github.com/juanpmarin/broadcaster/internal/broadcaster"
+	"github.com/juanpmarin/broadcaster/internal/ierr"
 )
 
 type AuthRequest struct {
@@ -17,31 +17,28 @@ type AuthResponse struct {
 	Success bool `json:"success"`
 }
 
-type AuthHandler struct {
-	secret    string
-	jwtParser *jwt.Parser
+type AuthHandlerInterface interface {
+	Handle(ctx context.Context, req AuthRequest) (AuthResponse, error)
 }
 
-func NewAuthHandler(secret string) *AuthHandler {
-	jwtParser := jwt.NewParser(
-		jwt.WithValidMethods([]string{jwt.SigningMethodHS256.Alg()}),
-		jwt.WithLeeway(30*time.Second),
-		jwt.WithExpirationRequired(),
-		jwt.WithIssuedAt(),
-		jwt.WithAudience("broadcaster"),
-	)
+type AuthHandler struct {
+	authenticator *auth.Authenticator
+}
 
+func NewAuthHandler(authenticator *auth.Authenticator) *AuthHandler {
 	return &AuthHandler{
-		secret,
-		jwtParser,
+		authenticator,
 	}
 }
 
 func (h *AuthHandler) Handle(ctx context.Context, req AuthRequest) (AuthResponse, error) {
-	claims := JWTClaims{}
-	_, err := h.jwtParser.ParseWithClaims(req.Token, &claims, h.keyFunc)
+	authentication, err := h.authenticator.AuthenticateJWT(req.Token)
 	if err != nil {
-		return AuthResponse{}, NewError(ErrorCodeInvalidArgument, err)
+		return AuthResponse{}, err
+	}
+
+	if !authentication.IsSubscriber() {
+		return AuthResponse{}, ierr.New(ierr.ErrorCodeInvalidArgument, errors.New("invalid token for client authentication"))
 	}
 
 	connection, ok := broadcaster.ConnectionFromContext(ctx)
@@ -50,60 +47,12 @@ func (h *AuthHandler) Handle(ctx context.Context, req AuthRequest) (AuthResponse
 	}
 
 	if connection.GetUserId() != "" {
-		return AuthResponse{}, NewError(ErrorCodeFailedPrecondition, errors.New("connection is already authenticated"))
+		return AuthResponse{}, ierr.New(ierr.ErrorCodeFailedPrecondition, errors.New("connection is already authenticated"))
 	}
 
-	userId, err := claims.GetSubject()
-	if err != nil || userId == "" {
-		return AuthResponse{},
-			NewError(ErrorCodeInvalidArgument, errors.New("invalid subject claim"))
-	}
-
-	if len(claims.AuthorizedChannels) == 0 {
-		return AuthResponse{}, NewError(ErrorCodeInvalidArgument, errors.New("authorized channels cannot be empty"))
-	}
-
-	authentication := broadcaster.Authentication{
-		UserId:                userId,
-		AuthorizedChannelsIds: claims.AuthorizedChannels,
-	}
-
-	connection.SetAuthentication(authentication)
+	connection.SetAuthentication(*authentication)
 
 	return AuthResponse{
 		Success: true,
 	}, nil
-}
-
-func (h *AuthHandler) keyFunc(token *jwt.Token) (any, error) {
-	return []byte(h.secret), nil
-}
-
-type JWTClaims struct {
-	jwt.RegisteredClaims
-	AuthorizedChannels []string `json:"authorizedChannels"`
-}
-
-func (c JWTClaims) GetExpirationTime() (*jwt.NumericDate, error) {
-	return c.ExpiresAt, nil
-}
-
-func (c JWTClaims) GetIssuedAt() (*jwt.NumericDate, error) {
-	return c.IssuedAt, nil
-}
-
-func (c JWTClaims) GetNotBefore() (*jwt.NumericDate, error) {
-	return c.NotBefore, nil
-}
-
-func (c JWTClaims) GetIssuer() (string, error) {
-	return c.Issuer, nil
-}
-
-func (c JWTClaims) GetSubject() (string, error) {
-	return c.Subject, nil
-}
-
-func (c JWTClaims) GetAudience() (jwt.ClaimStrings, error) {
-	return c.Audience, nil
 }

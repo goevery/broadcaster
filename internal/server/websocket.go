@@ -98,7 +98,10 @@ func (s *WebSocketServer) readPump(
 		var request handler.Request
 		err := wsConn.ReadJSON(&request)
 		if err != nil {
-			s.logger.Error("failed to read request", zap.Error(err))
+			isExpectedClose := websocket.IsCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure)
+			if !isExpectedClose {
+				s.logger.Error("failed to read request", zap.Error(err))
+			}
 
 			break
 		}

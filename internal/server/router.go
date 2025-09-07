@@ -6,26 +6,27 @@ import (
 	"errors"
 
 	"github.com/juanpmarin/broadcaster/internal/handler"
+	"github.com/juanpmarin/broadcaster/internal/ierr"
 	"go.uber.org/zap"
 )
 
 type Router struct {
 	logger *zap.Logger
 
-	heartbeatHandler *handler.HeartbeatHandler
-	joinHandler      *handler.JoinHandler
-	leaveHandler     *handler.LeaveHandler
-	pushHandler      *handler.PushHandler
-	authHandler      *handler.AuthHandler
+	heartbeatHandler handler.HeartbeatHandlerInterface
+	joinHandler      handler.JoinHandlerInterface
+	leaveHandler     handler.LeaveHandlerInterface
+	pushHandler      handler.PushHandlerInterface
+	authHandler      handler.AuthHandlerInterface
 }
 
 func NewRouter(
 	logger *zap.Logger,
-	heartbeatHandler *handler.HeartbeatHandler,
-	joinHandler *handler.JoinHandler,
-	leaveHandler *handler.LeaveHandler,
-	pushHandler *handler.PushHandler,
-	authHandler *handler.AuthHandler,
+	heartbeatHandler handler.HeartbeatHandlerInterface,
+	joinHandler handler.JoinHandlerInterface,
+	leaveHandler handler.LeaveHandlerInterface,
+	pushHandler handler.PushHandlerInterface,
+	authHandler handler.AuthHandlerInterface,
 ) *Router {
 	return &Router{
 		logger,
@@ -51,7 +52,7 @@ func (r *Router) RouteRequest(ctx context.Context, request handler.Request) *han
 		r.logger.Error("handler did not return a response but one was expected", zap.String("method", request.Method))
 
 		response := request.ReplyWithError(
-			handler.NewError(handler.ErrorCodeInternal, errors.New("internal error")),
+			ierr.New(ierr.ErrorCodeInternal, errors.New("internal error")),
 		)
 
 		return &response
@@ -112,28 +113,28 @@ func (r *Router) Handle(ctx context.Context, request handler.Request) (any, erro
 
 		return r.pushHandler.Handle(ctx, pushReq)
 	default:
-		return nil, handler.NewError(handler.ErrorCodeNotFound, errors.New("method not found: "+request.Method))
+		return nil, ierr.New(ierr.ErrorCodeNotFound, errors.New("method not found: "+request.Method))
 	}
 }
 
-func (r *Router) mapError(err error) handler.Error {
-	var handlerErr handler.Error
+func (r *Router) mapError(err error) ierr.Error {
+	var handlerErr ierr.Error
 	if errors.As(err, &handlerErr) {
 		return handlerErr
 	}
 
 	r.logger.Error("error in rpc handler", zap.Error(err))
 
-	return handler.NewError(handler.ErrorCodeInternal, errors.New("internal error"))
+	return ierr.New(ierr.ErrorCodeInternal, errors.New("internal error"))
 }
 
 func decodeParams(params *json.RawMessage, v any) error {
 	if params == nil {
-		return handler.NewError(handler.ErrorCodeInvalidArgument, errors.New("missing params"))
+		return ierr.New(ierr.ErrorCodeInvalidArgument, errors.New("missing params"))
 	}
 
 	if err := json.Unmarshal(*params, v); err != nil {
-		return handler.NewError(handler.ErrorCodeInvalidArgument, errors.New("invalid params: "+err.Error()))
+		return ierr.New(ierr.ErrorCodeInvalidArgument, errors.New("invalid params: "+err.Error()))
 	}
 
 	return nil

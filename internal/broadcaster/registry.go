@@ -10,7 +10,7 @@ import (
 type Registry interface {
 	Connect(connection *Connection) error
 	Broadcast(message Message)
-	Subscribe(channelId string, connection *Connection) error
+	Subscribe(channelId string, connectionId string) error
 	Unsubscribe(channelId string, connectionId string)
 	Disconnect(connectionId string)
 }
@@ -94,11 +94,11 @@ func (r *InMemoryRegistry) Broadcast(message Message) {
 	r.mu.Unlock()
 }
 
-func (r *InMemoryRegistry) Subscribe(channelId string, connection *Connection) error {
+func (r *InMemoryRegistry) Subscribe(channelId string, connectionId string) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	if _, ok := r.connections[connection.Id]; !ok {
+	if _, ok := r.connections[connectionId]; !ok {
 		return errors.New("connection not connected")
 	}
 
@@ -108,12 +108,12 @@ func (r *InMemoryRegistry) Subscribe(channelId string, connection *Connection) e
 	}
 
 	// Check if connection is already subscribed to the channel
-	if _, ok := r.connectionsByChannel[channelId][connection.Id]; ok {
+	if _, ok := r.connectionsByChannel[channelId][connectionId]; ok {
 		return errors.New("connection already subscribed to channel")
 	}
 
-	r.connectionsByChannel[channelId][connection.Id] = struct{}{}
-	r.channelsByConnection[connection.Id][channelId] = struct{}{}
+	r.connectionsByChannel[channelId][connectionId] = struct{}{}
+	r.channelsByConnection[connectionId][channelId] = struct{}{}
 
 	return nil
 }

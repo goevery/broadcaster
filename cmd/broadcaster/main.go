@@ -12,6 +12,7 @@ import (
 	"github.com/Netflix/go-env"
 	"github.com/gorilla/mux"
 	"github.com/gorilla/websocket"
+	"github.com/juanpmarin/broadcaster/internal/auth"
 	"github.com/juanpmarin/broadcaster/internal/broadcaster"
 	"github.com/juanpmarin/broadcaster/internal/handler"
 	"github.com/juanpmarin/broadcaster/internal/server"
@@ -34,6 +35,8 @@ func NewApp(logger *zap.Logger, settings Settings) *App {
 		EnableCompression: true,
 	}
 
+	authenticator := auth.NewAuthenticator(settings.JWTSecret, settings.APIKeys)
+
 	channelIdValidator := handler.NewChannelIdValidator()
 	registry := broadcaster.NewInMemoryRegistry(logger)
 
@@ -41,7 +44,7 @@ func NewApp(logger *zap.Logger, settings Settings) *App {
 	joinHandler := handler.NewJoinHandler(channelIdValidator, registry)
 	leaveHandler := handler.NewLeaveHandler(channelIdValidator, registry)
 	pushHandler := handler.NewPushHandler(channelIdValidator, registry)
-	authHandler := handler.NewAuthHandler(settings.JWTSecret)
+	authHandler := handler.NewAuthHandler(authenticator)
 
 	router := server.NewRouter(
 		logger,
@@ -61,6 +64,7 @@ func NewApp(logger *zap.Logger, settings Settings) *App {
 	restServer := server.NewRESTServer(
 		logger,
 		pushHandler,
+		authenticator,
 	)
 
 	return &App{

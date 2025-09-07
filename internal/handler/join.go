@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/juanpmarin/broadcaster/internal/broadcaster"
+	"github.com/juanpmarin/broadcaster/internal/ierr"
 )
 
 type JoinRequest struct {
@@ -15,6 +16,10 @@ type JoinRequest struct {
 type JoinResponse struct {
 	SubscriptionId string    `json:"subscriptionId,omitempty"`
 	Timestamp      time.Time `json:"timestamp"`
+}
+
+type JoinHandlerInterface interface {
+	Handle(ctx context.Context, req JoinRequest) (JoinResponse, error)
 }
 
 type JoinHandler struct {
@@ -46,10 +51,10 @@ func (h *JoinHandler) Handle(ctx context.Context, req JoinRequest) (JoinResponse
 
 	if !connection.IsAuthorized(req.ChannelId) {
 		return JoinResponse{},
-			NewError(ErrorCodeUnauthenticated, errors.New("user not authorized to access this channel"))
+			ierr.New(ierr.ErrorCodeUnauthenticated, errors.New("user not authorized to access this channel"))
 	}
 
-	err = h.subscriptionRegistry.Subscribe(req.ChannelId, connection)
+	err = h.subscriptionRegistry.Subscribe(req.ChannelId, connection.Id)
 	if err != nil {
 		return JoinResponse{}, err
 	}

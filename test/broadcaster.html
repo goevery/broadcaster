@@ -23,6 +23,17 @@
             <div class="space-y-4">
               <div>
                 <label class="block text-sm font-medium text-slate-300 mb-2">
+                  API Key
+                </label>
+                <input
+                  x-model="apiKey"
+                  type="text"
+                  placeholder="your-api-key"
+                  class="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-md text-white text-sm placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-slate-300 mb-2">
                   Target Channel ID
                 </label>
                 <input
@@ -226,6 +237,7 @@
           userId: "user123",
           authorizedChannels: "mychan,otherchan",
           jwtSecret: "your-secret-key",
+          apiKey: "test-api-key",
           requestId: 1,
           pendingRequests: new Map(),
           init() {
@@ -243,7 +255,7 @@
           },
           authenticate() {
             this.ws = new WebSocket(
-              "wss://assistdev.goevery.co/broadcaster/websocket",
+              "ws://localhost:8000/broadcaster/websocket",
             );
             let pingInterval;
 
@@ -279,7 +291,7 @@
             this.$watch("connected", (connected) => {
               if (connected && !pingInterval) {
                 pingInterval = setInterval(() => {
-                  this.sendRequest("heartbeat", null, false);
+                  this.sendRequest("heartbeat", null, true);
                 }, 10000);
               }
             });
@@ -299,6 +311,7 @@
                 aud: "broadcaster",
                 iat: now,
                 exp: now + 3600, // 1 hour expiration
+                scope: ["subscribe"],
               };
 
               const token = await this.createJWT(payload, this.jwtSecret);
@@ -487,11 +500,12 @@
               const payload = JSON.parse(this.messagePayload);
 
               const response = await fetch(
-                "https://assistdev.goevery.co/broadcaster/push",
+                "http://localhost:8000/broadcaster/push",
                 {
                   method: "POST",
                   headers: {
                     "Content-Type": "application/json",
+                    Authorization: `Bearer ${this.apiKey}`,
                   },
                   body: JSON.stringify({
                     channelId: this.publishChannelId,

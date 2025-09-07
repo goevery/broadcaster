@@ -15,6 +15,10 @@ type LeaveResponse struct {
 	Success bool `json:"success"`
 }
 
+type LeaveHandlerInterface interface {
+	Handle(ctx context.Context, req LeaveRequest) (LeaveResponse, error)
+}
+
 type LeaveHandler struct {
 	channelIdValidator   *ChannelIdValidator
 	subscriptionRegistry broadcaster.Registry

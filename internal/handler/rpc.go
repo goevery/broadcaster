@@ -1,6 +1,10 @@
 package handler
 
-import "encoding/json"
+import (
+	"encoding/json"
+
+	"github.com/juanpmarin/broadcaster/internal/ierr"
+)
 
 type Request struct {
 	Id     int              `json:"id,omitempty"`
@@ -26,7 +30,7 @@ func (r Request) Reply(result *json.RawMessage) Response {
 	}
 }
 
-func (r Request) ReplyWithError(err Error) Response {
+func (r Request) ReplyWithError(err ierr.Error) Response {
 	return Response{
 		RequestId: r.Id,
 		Error:     &err,
@@ -36,44 +40,9 @@ func (r Request) ReplyWithError(err Error) Response {
 type Response struct {
 	RequestId int              `json:"requestId,omitempty"`
 	Result    *json.RawMessage `json:"result,omitempty"`
-	Error     *Error           `json:"error,omitempty"`
+	Error     *ierr.Error      `json:"error,omitempty"`
 }
 
 func (r Response) IsFailure() bool {
 	return r.Error != nil
-}
-
-type ErrorCode string
-
-const (
-	ErrorCodeInvalidArgument    ErrorCode = "InvalidArgument"
-	ErrorCodeNotFound           ErrorCode = "NotFound"
-	ErrorCodeAlreadyExists      ErrorCode = "AlreadyExists"
-	ErrorCodeFailedPrecondition ErrorCode = "FailedPrecondition"
-	ErrorCodeUnauthenticated    ErrorCode = "Unauthenticated"
-	ErrorCodeInternal           ErrorCode = "Internal"
-)
-
-type Error struct {
-	Code    ErrorCode       `json:"code"`
-	Message string          `json:"message"`
-	Data    json.RawMessage `json:"data,omitempty"`
-
-	cause error
-}
-
-func NewError(code ErrorCode, cause error) Error {
-	return Error{
-		Code:    code,
-		Message: cause.Error(),
-		cause:   cause,
-	}
-}
-
-func (e Error) Error() string {
-	return string(e.Code) + ": " + e.cause.Error()
-}
-
-func (e Error) Unwrap() error {
-	return e.cause
 }

@@ -2,24 +2,20 @@ package broadcaster
 
 import (
 	"context"
-	"slices"
 	"sync"
-)
 
-type Authentication struct {
-	UserId                string
-	AuthorizedChannelsIds []string
-}
+	"github.com/juanpmarin/broadcaster/internal/auth"
+)
 
 type Connection struct {
 	Id   string
 	Send chan Message
 
 	mu             sync.RWMutex
-	authentication Authentication
+	authentication auth.Authentication
 }
 
-func (c *Connection) SetAuthentication(auth Authentication) {
+func (c *Connection) SetAuthentication(auth auth.Authentication) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
@@ -30,18 +26,14 @@ func (c *Connection) GetUserId() string {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 
-	return c.authentication.UserId
+	return c.authentication.Subject
 }
 
 func (c *Connection) IsAuthorized(channelId string) bool {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 
-	if c.authentication.UserId == "" {
-		return false
-	}
-
-	return slices.Contains(c.authentication.AuthorizedChannelsIds, channelId)
+	return c.authentication.IsAuthorized(channelId)
 }
 
 type contextKey string

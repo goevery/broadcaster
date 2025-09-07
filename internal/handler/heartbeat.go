@@ -6,6 +6,10 @@ type HeartbeatResponse struct {
 	Timestamp time.Time `json:"timestamp"`
 }
 
+type HeartbeatHandlerInterface interface {
+	Handle() HeartbeatResponse
+}
+
 type HeartbeatHandler struct{}
 
 func NewHeartbeatHandler() *HeartbeatHandler {
