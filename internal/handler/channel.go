@@ -7,20 +7,20 @@ import (
 	"github.com/goevery/broadcaster/internal/ierr"
 )
 
-type ChannelIdValidator struct {
-	channelIdRegex *regexp.Regexp
+type ChannelValidator struct {
+	channelRegex *regexp.Regexp
 }
 
-func NewChannelIdValidator() *ChannelIdValidator {
-	return &ChannelIdValidator{
-		channelIdRegex: regexp.MustCompile(`^([\w-]+:?)*\w$`),
+func NewChannelValidator() *ChannelValidator {
+	return &ChannelValidator{
+		channelRegex: regexp.MustCompile(`^([\w-]+:?)*\w$`),
 	}
 }
 
-func (v *ChannelIdValidator) Validate(channelId string) error {
-	valid := v.channelIdRegex.MatchString(channelId)
+func (v *ChannelValidator) Validate(channel string) error {
+	valid := v.channelRegex.MatchString(channel)
 	if !valid {
-		return ierr.New(ierr.ErrorCodeInvalidArgument, errors.New("invalid channelId"))
+		return ierr.New(ierr.ErrorCodeInvalidArgument, errors.New("invalid channel"))
 	}
 
 	return nil

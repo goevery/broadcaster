@@ -30,7 +30,7 @@ func TestAuthenticator_AuthenticateJWT(t *testing.T) {
 		assert.NoError(t, err)
 		assert.NotNil(t, auth)
 		assert.Equal(t, "test-user", auth.Subject)
-		assert.Equal(t, []string{"test-channel"}, auth.AuthorizedChannelsIds)
+		assert.Equal(t, []string{"test-channel"}, auth.AuthorizedChannels)
 		assert.Equal(t, []string{"subscribe"}, auth.Scope)
 		assert.False(t, auth.IsAdmin)
 	})

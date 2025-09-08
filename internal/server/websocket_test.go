@@ -21,11 +21,11 @@ func TestWebSocketServer(t *testing.T) {
 	logger, _ := zap.NewDevelopment()
 	registry := broadcaster.NewInMemoryRegistry(logger)
 	authenticator := auth.NewAuthenticator("test-secret", []string{"test-api-key"})
-	channelIdValidator := handler.NewChannelIdValidator()
+	channelValidator := handler.NewChannelValidator()
 	heartbeatHandler := handler.NewHeartbeatHandler()
-	subscribeHandler := handler.NewSubscribeHandler(channelIdValidator, registry)
-	unsubscribeHandler := handler.NewUnsubscribeHandler(channelIdValidator, registry)
-	publishHandler := handler.NewPublishHandler(channelIdValidator, registry)
+	subscribeHandler := handler.NewSubscribeHandler(channelValidator, registry)
+	unsubscribeHandler := handler.NewUnsubscribeHandler(channelValidator, registry)
+	publishHandler := handler.NewPublishHandler(channelValidator, registry)
 	authHandler := handler.NewAuthHandler(authenticator)
 
 	router := NewRouter(logger, heartbeatHandler, subscribeHandler, unsubscribeHandler, publishHandler, authHandler)
@@ -75,7 +75,7 @@ func TestWebSocketServer(t *testing.T) {
 		assert.Equal(t, true, authResponsePayload.Success)
 
 		// Subscribe
-		subscribeRequest := json.RawMessage(`{"id":2,"method":"subscribe","params":{"channelId":"test-channel"}}`)
+		subscribeRequest := json.RawMessage(`{"id":2,"method":"subscribe","params":{"channel":"test-channel"}}`)
 		err = conn.WriteJSON(subscribeRequest)
 		assert.NoError(t, err)
 
@@ -90,7 +90,7 @@ func TestWebSocketServer(t *testing.T) {
 		assert.NotEmpty(t, subscribeResponsePayload.SubscriptionId)
 
 		// Server sends a message
-		msg := broadcaster.Message{ChannelId: "test-channel", Payload: "test-payload"}
+		msg := broadcaster.Message{Channel: "test-channel", Payload: "test-payload"}
 		registry.Broadcast(msg)
 
 		var messageRequest handler.Request
@@ -102,7 +102,7 @@ func TestWebSocketServer(t *testing.T) {
 		var messagePayload broadcaster.Message
 		err = json.Unmarshal(*messageRequest.Params, &messagePayload)
 		assert.NoError(t, err)
-		assert.Equal(t, msg.ChannelId, messagePayload.ChannelId)
+		assert.Equal(t, msg.Channel, messagePayload.Channel)
 		assert.Equal(t, msg.Payload, messagePayload.Payload)
 
 		conn.Close()
@@ -128,7 +128,7 @@ func TestWebSocketServer(t *testing.T) {
 		assert.NoError(t, err)
 		defer conn.Close()
 
-		subscribeRequest := json.RawMessage(`{"id":1,"method":"subscribe","params":{"channelId":"test-channel"}}`)
+		subscribeRequest := json.RawMessage(`{"id":1,"method":"subscribe","params":{"channel":"test-channel"}}`)
 		err = conn.WriteJSON(subscribeRequest)
 		assert.NoError(t, err)
 
@@ -168,7 +168,7 @@ func TestWebSocketServer(t *testing.T) {
 		assert.NoError(t, err)
 
 		// Subscribe
-		subscribeRequest := json.RawMessage(`{"id":2,"method":"subscribe","params":{"channelId":"test-channel"}}`)
+		subscribeRequest := json.RawMessage(`{"id":2,"method":"subscribe","params":{"channel":"test-channel"}}`)
 		err = conn.WriteJSON(subscribeRequest)
 		assert.NoError(t, err)
 
@@ -213,7 +213,7 @@ func TestWebSocketServer(t *testing.T) {
 		assert.Equal(t, true, authResponsePayload.Success)
 
 		// Publish
-		publishRequest := json.RawMessage(`{"id":2,"method":"publish","params":{"channelId":"test-channel","payload":{"foo":"bar"}}}`)
+		publishRequest := json.RawMessage(`{"id":2,"method":"publish","params":{"channel":"test-channel","event":"test-event","payload":{"foo":"bar"}}}`)
 		err = conn.WriteJSON(publishRequest)
 		assert.NoError(t, err)
 
@@ -257,7 +257,7 @@ func TestWebSocketServer(t *testing.T) {
 		assert.Equal(t, true, authResponsePayload.Success)
 
 		// Subscribe should fail without subscribe scope
-		subscribeRequest := json.RawMessage(`{"id":2,"method":"subscribe","params":{"channelId":"test-channel"}}`)
+		subscribeRequest := json.RawMessage(`{"id":2,"method":"subscribe","params":{"channel":"test-channel"}}`)
 		err = conn.WriteJSON(subscribeRequest)
 		assert.NoError(t, err)
 
@@ -302,7 +302,7 @@ func TestWebSocketServer(t *testing.T) {
 		assert.Equal(t, true, authResponsePayload.Success)
 
 		// Publish should fail without publish scope
-		publishRequest := json.RawMessage(`{"id":2,"method":"publish","params":{"channelId":"test-channel","payload":{"foo":"bar"}}}`)
+		publishRequest := json.RawMessage(`{"id":2,"method":"publish","params":{"channel":"test-channel","event":"test-event","payload":{"foo":"bar"}}}`)
 		err = conn.WriteJSON(publishRequest)
 		assert.NoError(t, err)
 

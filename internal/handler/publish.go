@@ -12,8 +12,9 @@ import (
 )
 
 type PublishRequest struct {
-	ChannelId string `json:"channelId"`
-	Payload   any    `json:"payload"`
+	Channel string `json:"channel"`
+	Event   string `json:"event"`
+	Payload any    `json:"payload"`
 }
 
 type PublishHandlerInterface interface {
@@ -21,16 +22,16 @@ type PublishHandlerInterface interface {
 }
 
 type PublishHandler struct {
-	channelIdValidator   *ChannelIdValidator
+	channelValidator     *ChannelValidator
 	subscriptionRegistry broadcaster.Registry
 }
 
 func NewPublishHandler(
-	channelIdValidator *ChannelIdValidator,
+	channelValidator *ChannelValidator,
 	subscriptionRegistry broadcaster.Registry,
 ) *PublishHandler {
 	return &PublishHandler{
-		channelIdValidator,
+		channelValidator,
 		subscriptionRegistry,
 	}
 }
@@ -55,12 +56,12 @@ func (h *PublishHandler) Handle(ctx context.Context, req PublishRequest) (broadc
 			ierr.New(ierr.ErrorCodePermissionDenied, errors.New("user not authorized to publish messages"))
 	}
 
-	if !authentication.IsAuthorized(req.ChannelId) {
+	if !authentication.IsAuthorized(req.Channel) {
 		return broadcaster.Message{},
 			ierr.New(ierr.ErrorCodePermissionDenied, errors.New("user not authorized to publish to this channel"))
 	}
 
-	err := h.channelIdValidator.Validate(req.ChannelId)
+	err := h.channelValidator.Validate(req.Channel)
 	if err != nil {
 		return broadcaster.Message{}, err
 	}
@@ -68,7 +69,8 @@ func (h *PublishHandler) Handle(ctx context.Context, req PublishRequest) (broadc
 	message := broadcaster.Message{
 		Id:         gonanoid.Must(),
 		CreateTime: time.Now(),
-		ChannelId:  req.ChannelId,
+		Channel:    req.Channel,
+		Event:      req.Event,
 		Payload:    req.Payload,
 	}
 

@@ -18,10 +18,10 @@ type Claims struct {
 }
 
 type Authentication struct {
-	Subject               string
-	AuthorizedChannelsIds []string
-	Scope                 []string
-	IsAdmin               bool
+	Subject            string
+	AuthorizedChannels []string
+	Scope              []string
+	IsAdmin            bool
 }
 
 func (a *Authentication) IsPublisher() bool {
@@ -32,7 +32,7 @@ func (a *Authentication) IsSubscriber() bool {
 	return slices.Contains(a.Scope, "subscribe")
 }
 
-func (a *Authentication) IsAuthorized(channelId string) bool {
+func (a *Authentication) IsAuthorized(channel string) bool {
 	if a.Subject == "" {
 		return false
 	}
@@ -41,7 +41,7 @@ func (a *Authentication) IsAuthorized(channelId string) bool {
 		return true
 	}
 
-	return slices.Contains(a.AuthorizedChannelsIds, channelId)
+	return slices.Contains(a.AuthorizedChannels, channel)
 }
 
 type contextKey string
@@ -104,10 +104,10 @@ func (a *Authenticator) AuthenticateJWT(tokenString string) (*Authentication, er
 	}
 
 	return &Authentication{
-		Subject:               subject,
-		AuthorizedChannelsIds: claims.AuthorizedChannels,
-		Scope:                 claims.Scope,
-		IsAdmin:               false,
+		Subject:            subject,
+		AuthorizedChannels: claims.AuthorizedChannels,
+		Scope:              claims.Scope,
+		IsAdmin:            false,
 	}, nil
 }
 

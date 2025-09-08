@@ -10,7 +10,7 @@ import (
 )
 
 type SubscribeRequest struct {
-	ChannelId string
+	Channel string `json:"channel"`
 }
 
 type SubscribeResponse struct {
@@ -23,23 +23,23 @@ type SubscribeHandlerInterface interface {
 }
 
 type SubscribeHandler struct {
-	channelIdValidator   *ChannelIdValidator
+	channelValidator     *ChannelValidator
 	subscriptionRegistry broadcaster.Registry
 }
 
 func NewSubscribeHandler(
-	channelIdValidator *ChannelIdValidator,
+	channelValidator *ChannelValidator,
 	subscriptionRegistry broadcaster.Registry,
 ) *SubscribeHandler {
 
 	return &SubscribeHandler{
-		channelIdValidator,
+		channelValidator,
 		subscriptionRegistry,
 	}
 }
 
 func (h *SubscribeHandler) Handle(ctx context.Context, req SubscribeRequest) (SubscribeResponse, error) {
-	err := h.channelIdValidator.Validate(req.ChannelId)
+	err := h.channelValidator.Validate(req.Channel)
 	if err != nil {
 		return SubscribeResponse{}, err
 	}
@@ -60,12 +60,12 @@ func (h *SubscribeHandler) Handle(ctx context.Context, req SubscribeRequest) (Su
 			ierr.New(ierr.ErrorCodePermissionDenied, errors.New("subscribe scope required to subscribe to a channel"))
 	}
 
-	if !connection.IsAuthorized(req.ChannelId) {
+	if !connection.IsAuthorized(req.Channel) {
 		return SubscribeResponse{},
 			ierr.New(ierr.ErrorCodeUnauthenticated, errors.New("user not authorized to access this channel"))
 	}
 
-	err = h.subscriptionRegistry.Subscribe(req.ChannelId, connection.Id)
+	err = h.subscriptionRegistry.Subscribe(req.Channel, connection.Id)
 	if err != nil {
 		return SubscribeResponse{}, err
 	}

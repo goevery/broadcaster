@@ -19,8 +19,8 @@ func TestRESTServer_Publish(t *testing.T) {
 	logger, _ := zap.NewDevelopment()
 	authenticator := auth.NewAuthenticator("test-secret", []string{"test-api-key"})
 	registry := broadcaster.NewMockRegistry(t)
-	channelIdValidator := handler.NewChannelIdValidator()
-	publishHandler := handler.NewPublishHandler(channelIdValidator, registry)
+	channelValidator := handler.NewChannelValidator()
+	publishHandler := handler.NewPublishHandler(channelValidator, registry)
 
 	restServer := NewRESTServer(logger, publishHandler, authenticator)
 
@@ -31,10 +31,10 @@ func TestRESTServer_Publish(t *testing.T) {
 	defer server.Close()
 
 	t.Run("valid api key", func(t *testing.T) {
-		body := `{"channelId":"test-channel","payload":"test-payload"}`
+		body := `{"channel":"test-channel","event":"test-event","payload":"test-payload"}`
 
 		registry.On("Broadcast", mock.MatchedBy(func(msg broadcaster.Message) bool {
-			return msg.ChannelId == "test-channel" && msg.Payload == "test-payload"
+			return msg.Channel == "test-channel" && msg.Event == "test-event" && msg.Payload == "test-payload"
 		})).Return().Once()
 
 		req, _ := http.NewRequest("POST", server.URL+"/publish", bytes.NewBuffer([]byte(body)))
@@ -49,7 +49,7 @@ func TestRESTServer_Publish(t *testing.T) {
 	})
 
 	t.Run("invalid api key", func(t *testing.T) {
-		body := `{"channelId":"test-channel","payload":"test-payload"}`
+		body := `{"channel":"test-channel","event":"test-event","payload":"test-payload"}`
 
 		req, _ := http.NewRequest("POST", server.URL+"/publish", bytes.NewBuffer([]byte(body)))
 		req.Header.Set("Authorization", "Bearer invalid-api-key")
