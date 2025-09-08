@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log"
 	"net/http"
 	"os/signal"
 	"syscall"
@@ -130,14 +131,14 @@ func (a *App) startHttpServer(ctx context.Context) {
 func main() {
 	ctx := context.Background()
 
-	logger, _ := zap.NewDevelopment()
-	defer logger.Sync()
-
 	var settings Settings
 	_, err := env.UnmarshalFromEnviron(&settings)
 	if err != nil {
-		logger.Fatal("failed to parse settings from environment", zap.Error(err))
+		log.Fatalf("failed to load settings: %v", err)
 	}
+
+	logger, err := buildZapLogger(settings.LogEncoding)
+	defer logger.Sync()
 
 	app := NewApp(logger, settings)
 
