@@ -5,6 +5,7 @@ import "time"
 type Message struct {
 	Id         string    `json:"id"`
 	CreateTime time.Time `json:"createTime"`
-	ChannelId  string    `json:"channelId"`
+	Channel    string    `json:"channel"`
+	Event      string    `json:"event"`
 	Payload    any       `json:"payload"`
 }

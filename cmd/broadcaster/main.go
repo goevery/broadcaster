@@ -38,13 +38,13 @@ func NewApp(logger *zap.Logger, settings Settings) *App {
 
 	authenticator := auth.NewAuthenticator(settings.JWTSecret, settings.APIKeys)
 
-	channelIdValidator := handler.NewChannelIdValidator()
+	channelValidator := handler.NewChannelValidator()
 	registry := broadcaster.NewInMemoryRegistry(logger)
 
 	heartbeatHandler := handler.NewHeartbeatHandler()
-	subscribeHandler := handler.NewSubscribeHandler(channelIdValidator, registry)
-	unsubscribeHandler := handler.NewUnsubscribeHandler(channelIdValidator, registry)
-	publishHandler := handler.NewPublishHandler(channelIdValidator, registry)
+	subscribeHandler := handler.NewSubscribeHandler(channelValidator, registry)
+	unsubscribeHandler := handler.NewUnsubscribeHandler(channelValidator, registry)
+	publishHandler := handler.NewPublishHandler(channelValidator, registry)
 	authHandler := handler.NewAuthHandler(authenticator)
 
 	router := server.NewRouter(

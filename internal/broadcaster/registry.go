@@ -52,7 +52,7 @@ func (r *InMemoryRegistry) Connect(connection *Connection) error {
 func (r *InMemoryRegistry) Broadcast(message Message) {
 	r.mu.RLock()
 
-	connectionIds, ok := r.connectionsByChannel[message.ChannelId]
+	connectionIds, ok := r.connectionsByChannel[message.Channel]
 	if !ok {
 		r.mu.RUnlock()
 

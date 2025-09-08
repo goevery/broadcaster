@@ -8,7 +8,7 @@ import (
 )
 
 type UnsubscribeRequest struct {
-	ChannelId string `json:"channelId"`
+	Channel string `json:"channel"`
 }
 
 type UnsubscribeResponse struct {
@@ -20,22 +20,22 @@ type UnsubscribeHandlerInterface interface {
 }
 
 type UnsubscribeHandler struct {
-	channelIdValidator   *ChannelIdValidator
+	channelValidator     *ChannelValidator
 	subscriptionRegistry broadcaster.Registry
 }
 
 func NewUnsubscribeHandler(
-	channelIdValidator *ChannelIdValidator,
+	channelValidator *ChannelValidator,
 	subscriptionRegistry broadcaster.Registry,
 ) *UnsubscribeHandler {
 	return &UnsubscribeHandler{
-		channelIdValidator,
+		channelValidator,
 		subscriptionRegistry,
 	}
 }
 
 func (h *UnsubscribeHandler) Handle(ctx context.Context, req UnsubscribeRequest) (UnsubscribeResponse, error) {
-	err := h.channelIdValidator.Validate(req.ChannelId)
+	err := h.channelValidator.Validate(req.Channel)
 	if err != nil {
 		return UnsubscribeResponse{}, err
 	}
@@ -45,7 +45,7 @@ func (h *UnsubscribeHandler) Handle(ctx context.Context, req UnsubscribeRequest)
 		return UnsubscribeResponse{}, errors.New("connection not found in context")
 	}
 
-	h.subscriptionRegistry.Unsubscribe(req.ChannelId, connection.Id)
+	h.subscriptionRegistry.Unsubscribe(req.Channel, connection.Id)
 
 	return UnsubscribeResponse{
 		Success: true,

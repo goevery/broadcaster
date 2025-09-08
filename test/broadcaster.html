@@ -34,12 +34,23 @@
               </div>
               <div>
                 <label class="block text-sm font-medium text-slate-300 mb-2">
-                  Target Channel ID
+                  Target Channel
                 </label>
                 <input
-                  x-model="publishChannelId"
+                  x-model="publishChannel"
                   type="text"
-                  placeholder="Channel ID"
+                  placeholder="Channel"
+                  class="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-md text-white text-sm placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-slate-300 mb-2">
+                  Event
+                </label>
+                <input
+                  x-model="publishEvent"
+                  type="text"
+                  placeholder="Event"
                   class="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-md text-white text-sm placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 />
               </div>
@@ -56,7 +67,7 @@
               </div>
               <button
                 @click="publishMessage()"
-                :disabled="!publishChannelId.trim() || !messagePayload.trim() || publishing"
+                :disabled="!publishChannel.trim() || !publishEvent.trim() || !messagePayload.trim() || publishing"
                 class="w-full inline-flex items-center justify-center space-x-2 px-4 py-3 rounded-md font-medium text-white transition-colors focus:outline-none focus:ring-2 focus:ring-green-500 disabled:opacity-50 disabled:cursor-not-allowed bg-green-600 hover:bg-green-700"
               >
                 <i data-lucide="send" class="w-4 h-4"></i>
@@ -111,7 +122,7 @@
               </div>
               <div x-show="!connected && !authenticated">
                 <label class="block text-sm font-medium text-slate-300 mb-2">
-                  Authorized Channel IDs (comma-separated)
+                  Authorized Channels (comma-separated)
                 </label>
                 <input
                   x-model="authorizedChannels"
@@ -133,18 +144,18 @@
               </div>
               <div x-show="authenticated && !connected">
                 <label class="block text-sm font-medium text-slate-300 mb-2">
-                  Channel ID to Listen
+                  Channel to Listen
                 </label>
                 <input
-                  x-model="channelId"
+                  x-model="channel"
                   type="text"
-                  placeholder="Channel ID"
+                  placeholder="Channel"
                   class="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-md text-white text-sm placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 />
               </div>
               <button
                 @click="handleConnectionAction()"
-                :disabled="(connected === false && authenticated === false && (!userId.trim() || !authorizedChannels.trim() || !jwtSecret.trim())) || (authenticated === true && connected === false && !channelId.trim())"
+                :disabled="(connected === false && authenticated === false && (!userId.trim() || !authorizedChannels.trim() || !jwtSecret.trim())) || (authenticated === true && connected === false && !channel.trim())"
                 class="w-full inline-flex items-center justify-center space-x-2 px-4 py-3 rounded-md font-medium text-white transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
                 :class="connected ? 'bg-red-600 hover:bg-red-700' : authenticated ? 'bg-blue-600 hover:bg-blue-700' : 'bg-green-600 hover:bg-green-700'"
               >
@@ -228,8 +239,9 @@
           connected: false,
           authenticated: false,
           messages: [],
-          channelId: "mychan",
-          publishChannelId: "mychan",
+          channel: "mychan",
+          publishChannel: "mychan",
+          publishEvent: "my-event",
           messagePayload: '{"message": "hello world"}',
           publishing: false,
           publishStatus: "",
@@ -390,7 +402,7 @@
           },
 
           subscribeToChannel() {
-            if (!this.authenticated || !this.channelId.trim()) {
+            if (!this.authenticated || !this.channel.trim()) {
               return;
             }
 
@@ -399,7 +411,7 @@
               : "";
 
             this.sendRequest("subscribe", {
-              channelId: this.channelId,
+              channel: this.channel,
               lastSeenMessageId: lastSeenMessageId,
             })
               .then((response) => {
@@ -429,7 +441,7 @@
             }
 
             this.sendRequest("unsubscribe", {
-              channelId: this.channelId,
+              channel: this.channel,
             })
               .then((response) => {
                 if (response.error) {
@@ -512,7 +524,7 @@
             this.pendingRequests.clear();
           },
           async publishMessage() {
-            if (!this.publishChannelId.trim() || !this.messagePayload.trim()) {
+            if (!this.publishChannel.trim() || !this.publishEvent.trim() || !this.messagePayload.trim()) {
               return;
             }
 
@@ -532,14 +544,15 @@
                     Authorization: `Bearer ${this.apiKey}`,
                   },
                   body: JSON.stringify({
-                    channelId: this.publishChannelId,
+                    channel: this.publishChannel,
+                    event: this.publishEvent,
                     payload: payload,
                   }),
                 },
               );
 
               if (response.ok) {
-                this.publishStatus = `Message published successfully to channel "${this.publishChannelId}"`;
+                this.publishStatus = `Message published successfully to channel "${this.publishChannel}"`;
                 this.publishSuccess = true;
                 // Clear the payload for next message
                 this.messagePayload = '{"message": ""}';
