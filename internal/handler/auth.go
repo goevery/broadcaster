@@ -37,10 +37,6 @@ func (h *AuthHandler) Handle(ctx context.Context, req AuthRequest) (AuthResponse
 		return AuthResponse{}, err
 	}
 
-	if !authentication.IsSubscriber() {
-		return AuthResponse{}, ierr.New(ierr.ErrorCodeInvalidArgument, errors.New("invalid token for client authentication"))
-	}
-
 	connection, ok := broadcaster.ConnectionFromContext(ctx)
 	if !ok {
 		return AuthResponse{}, errors.New("connection not found in context")
@@ -50,7 +46,7 @@ func (h *AuthHandler) Handle(ctx context.Context, req AuthRequest) (AuthResponse
 		return AuthResponse{}, ierr.New(ierr.ErrorCodeFailedPrecondition, errors.New("connection is already authenticated"))
 	}
 
-	connection.SetAuthentication(*authentication)
+	connection.SetAuthentication(authentication)
 
 	return AuthResponse{
 		Success: true,

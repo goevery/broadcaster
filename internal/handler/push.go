@@ -36,13 +36,28 @@ func NewPushHandler(
 }
 
 func (h *PushHandler) Handle(ctx context.Context, req PushRequest) (broadcaster.Message, error) {
-	authentication, ok := auth.AuthenticationFromContext(ctx)
-	if !ok {
-		return broadcaster.Message{}, errors.New("authentication not found in context")
+	var authentication *auth.Authentication
+
+	connection, ok := broadcaster.ConnectionFromContext(ctx)
+	if ok {
+		authentication = connection.GetAuthentication()
+	}
+
+	if authentication == nil {
+		authentication, ok = auth.AuthenticationFromContext(ctx)
+		if !ok {
+			return broadcaster.Message{}, ierr.New(ierr.ErrorCodeUnauthenticated, errors.New("user not authenticated"))
+		}
+	}
+
+	if !authentication.IsPublisher() {
+		return broadcaster.Message{},
+			ierr.New(ierr.ErrorCodePermissionDenied, errors.New("user not authorized to publish messages"))
 	}
 
 	if !authentication.IsAuthorized(req.ChannelId) {
-		return broadcaster.Message{}, ierr.New(ierr.ErrorCodePermissionDenied, errors.New("not authorized to publish to this channel"))
+		return broadcaster.Message{},
+			ierr.New(ierr.ErrorCodePermissionDenied, errors.New("user not authorized to publish to this channel"))
 	}
 
 	err := h.channelIdValidator.Validate(req.ChannelId)

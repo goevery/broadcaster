@@ -49,6 +49,17 @@ func (h *JoinHandler) Handle(ctx context.Context, req JoinRequest) (JoinResponse
 		return JoinResponse{}, errors.New("connection not found in context")
 	}
 
+	auth := connection.GetAuthentication()
+	if auth == nil {
+		return JoinResponse{},
+			ierr.New(ierr.ErrorCodeUnauthenticated, errors.New("authentication required"))
+	}
+
+	if !auth.IsSubscriber() {
+		return JoinResponse{},
+			ierr.New(ierr.ErrorCodePermissionDenied, errors.New("subscribe scope required to join a channel"))
+	}
+
 	if !connection.IsAuthorized(req.ChannelId) {
 		return JoinResponse{},
 			ierr.New(ierr.ErrorCodeUnauthenticated, errors.New("user not authorized to access this channel"))

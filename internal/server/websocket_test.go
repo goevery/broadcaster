@@ -122,4 +122,196 @@ func TestWebSocketServer(t *testing.T) {
 		assert.Error(t, err)
 		assert.True(t, websocket.IsCloseError(err, websocket.CloseNoStatusReceived))
 	})
+
+	t.Run("join without auth", func(t *testing.T) {
+		conn, _, err := websocket.DefaultDialer.Dial(u.String(), nil)
+		assert.NoError(t, err)
+		defer conn.Close()
+
+		joinRequest := json.RawMessage(`{"id":1,"method":"join","params":{"channelId":"test-channel"}}`)
+		err = conn.WriteJSON(joinRequest)
+		assert.NoError(t, err)
+
+		var joinResponse handler.Response
+		conn.SetReadDeadline(time.Now().Add(time.Second))
+		err = conn.ReadJSON(&joinResponse)
+		assert.NoError(t, err)
+		assert.NotNil(t, joinResponse.Error)
+		assert.Equal(t, "Unauthenticated", string(joinResponse.Error.Code))
+	})
+
+	t.Run("join unauthorized channel", func(t *testing.T) {
+		conn, _, err := websocket.DefaultDialer.Dial(u.String(), nil)
+		assert.NoError(t, err)
+		defer conn.Close()
+
+		// Auth
+		claims := jwt.MapClaims{
+			"sub":                "test-user",
+			"exp":                time.Now().Add(time.Hour).Unix(),
+			"iat":                time.Now().Unix(),
+			"aud":                "broadcaster",
+			"authorizedChannels": []string{"another-channel"},
+			"scope":              []string{"subscribe"},
+		}
+		token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+		tokenString, err := token.SignedString([]byte("test-secret"))
+		assert.NoError(t, err)
+
+		authRequest := json.RawMessage(`{"id":1,"method":"auth","params":{"token":"` + tokenString + `"}}`)
+		err = conn.WriteJSON(authRequest)
+		assert.NoError(t, err)
+
+		var authResponse handler.Response
+		conn.SetReadDeadline(time.Now().Add(time.Second))
+		err = conn.ReadJSON(&authResponse)
+		assert.NoError(t, err)
+
+		// Join
+		joinRequest := json.RawMessage(`{"id":2,"method":"join","params":{"channelId":"test-channel"}}`)
+		err = conn.WriteJSON(joinRequest)
+		assert.NoError(t, err)
+
+		var joinResponse handler.Response
+		conn.SetReadDeadline(time.Now().Add(time.Second))
+		err = conn.ReadJSON(&joinResponse)
+		assert.NoError(t, err)
+		assert.NotNil(t, joinResponse.Error)
+		assert.Equal(t, "Unauthenticated", string(joinResponse.Error.Code))
+	})
+
+	t.Run("push message with publish scope", func(t *testing.T) {
+		conn, _, err := websocket.DefaultDialer.Dial(u.String(), nil)
+		assert.NoError(t, err)
+		defer conn.Close()
+
+		// Auth
+		claims := jwt.MapClaims{
+			"sub":                "test-user",
+			"exp":                time.Now().Add(time.Hour).Unix(),
+			"iat":                time.Now().Unix(),
+			"aud":                "broadcaster",
+			"authorizedChannels": []string{"test-channel"},
+			"scope":              []string{"publish"},
+		}
+		token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+		tokenString, err := token.SignedString([]byte("test-secret"))
+		assert.NoError(t, err)
+
+		authRequest := json.RawMessage(`{"id":1,"method":"auth","params":{"token":"` + tokenString + `"}}`)
+		err = conn.WriteJSON(authRequest)
+		assert.NoError(t, err)
+
+		var authResponse handler.Response
+		conn.SetReadDeadline(time.Now().Add(time.Second))
+		err = conn.ReadJSON(&authResponse)
+		assert.NoError(t, err)
+
+		var authResponsePayload handler.AuthResponse
+		err = json.Unmarshal(*authResponse.Result, &authResponsePayload)
+		assert.NoError(t, err)
+		assert.Equal(t, true, authResponsePayload.Success)
+
+		// Push
+		pushRequest := json.RawMessage(`{"id":2,"method":"push","params":{"channelId":"test-channel","payload":{"foo":"bar"}}}`)
+		err = conn.WriteJSON(pushRequest)
+		assert.NoError(t, err)
+
+		var pushResponse handler.Response
+		conn.SetReadDeadline(time.Now().Add(time.Second))
+		err = conn.ReadJSON(&pushResponse)
+		assert.NoError(t, err)
+		assert.Nil(t, pushResponse.Error)
+	})
+
+	t.Run("join without subscribe scope", func(t *testing.T) {
+		conn, _, err := websocket.DefaultDialer.Dial(u.String(), nil)
+		assert.NoError(t, err)
+		defer conn.Close()
+
+		// Auth with only publish scope (no subscribe)
+		claims := jwt.MapClaims{
+			"sub":                "test-user",
+			"exp":                time.Now().Add(time.Hour).Unix(),
+			"iat":                time.Now().Unix(),
+			"aud":                "broadcaster",
+			"authorizedChannels": []string{"test-channel"},
+			"scope":              []string{"publish"},
+		}
+		token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+		tokenString, err := token.SignedString([]byte("test-secret"))
+		assert.NoError(t, err)
+
+		authRequest := json.RawMessage(`{"id":1,"method":"auth","params":{"token":"` + tokenString + `"}}`)
+		err = conn.WriteJSON(authRequest)
+		assert.NoError(t, err)
+
+		var authResponse handler.Response
+		conn.SetReadDeadline(time.Now().Add(time.Second))
+		err = conn.ReadJSON(&authResponse)
+		assert.NoError(t, err)
+
+		var authResponsePayload handler.AuthResponse
+		err = json.Unmarshal(*authResponse.Result, &authResponsePayload)
+		assert.NoError(t, err)
+		assert.Equal(t, true, authResponsePayload.Success)
+
+		// Join should fail without subscribe scope
+		joinRequest := json.RawMessage(`{"id":2,"method":"join","params":{"channelId":"test-channel"}}`)
+		err = conn.WriteJSON(joinRequest)
+		assert.NoError(t, err)
+
+		var joinResponse handler.Response
+		conn.SetReadDeadline(time.Now().Add(time.Second))
+		err = conn.ReadJSON(&joinResponse)
+		assert.NoError(t, err)
+		assert.NotNil(t, joinResponse.Error)
+		assert.Equal(t, "PermissionDenied", string(joinResponse.Error.Code))
+	})
+
+	t.Run("push message without publish scope", func(t *testing.T) {
+		conn, _, err := websocket.DefaultDialer.Dial(u.String(), nil)
+		assert.NoError(t, err)
+		defer conn.Close()
+
+		// Auth with only subscribe scope (no publish)
+		claims := jwt.MapClaims{
+			"sub":                "test-user",
+			"exp":                time.Now().Add(time.Hour).Unix(),
+			"iat":                time.Now().Unix(),
+			"aud":                "broadcaster",
+			"authorizedChannels": []string{"test-channel"},
+			"scope":              []string{"subscribe"},
+		}
+		token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+		tokenString, err := token.SignedString([]byte("test-secret"))
+		assert.NoError(t, err)
+
+		authRequest := json.RawMessage(`{"id":1,"method":"auth","params":{"token":"` + tokenString + `"}}`)
+		err = conn.WriteJSON(authRequest)
+		assert.NoError(t, err)
+
+		var authResponse handler.Response
+		conn.SetReadDeadline(time.Now().Add(time.Second))
+		err = conn.ReadJSON(&authResponse)
+		assert.NoError(t, err)
+
+		var authResponsePayload handler.AuthResponse
+		err = json.Unmarshal(*authResponse.Result, &authResponsePayload)
+		assert.NoError(t, err)
+		assert.Equal(t, true, authResponsePayload.Success)
+
+		// Push should fail without publish scope
+		pushRequest := json.RawMessage(`{"id":2,"method":"push","params":{"channelId":"test-channel","payload":{"foo":"bar"}}}`)
+		err = conn.WriteJSON(pushRequest)
+		assert.NoError(t, err)
+
+		var pushResponse handler.Response
+		conn.SetReadDeadline(time.Now().Add(time.Second))
+		err = conn.ReadJSON(&pushResponse)
+
+		assert.NoError(t, err)
+		assert.NotNil(t, pushResponse.Error)
+		assert.Equal(t, "PermissionDenied", string(pushResponse.Error.Code))
+	})
 }

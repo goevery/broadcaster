@@ -12,19 +12,30 @@ type Connection struct {
 	Send chan Message
 
 	mu             sync.RWMutex
-	authentication auth.Authentication
+	authentication *auth.Authentication
 }
 
-func (c *Connection) SetAuthentication(auth auth.Authentication) {
+func (c *Connection) SetAuthentication(auth *auth.Authentication) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
 	c.authentication = auth
 }
 
+func (c *Connection) GetAuthentication() *auth.Authentication {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+
+	return c.authentication
+}
+
 func (c *Connection) GetUserId() string {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
+
+	if c.authentication == nil {
+		return ""
+	}
 
 	return c.authentication.Subject
 }
@@ -32,6 +43,10 @@ func (c *Connection) GetUserId() string {
 func (c *Connection) IsAuthorized(channelId string) bool {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
+
+	if c.authentication == nil {
+		return false
+	}
 
 	return c.authentication.IsAuthorized(channelId)
 }
