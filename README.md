@@ -63,21 +63,21 @@ The protocol uses a JSON-RPC-inspired message format.
 
 **Request**:
 
-```jsonc
+```json
 {
-  "id": 123, // Optional: for requests expecting a reply
-  "method": "method-name", // Required
-  "params": { "foo": "bar" }, // Optional
+  "id": 123,
+  "method": "method-name",
+  "params": { "foo": "bar" }
 }
 ```
 
 **Response**:
 
-```jsonc
+```json
 {
-  "requestId": 123, // Required: matches the request ID
-  "result": { "foo": "bar" }, // Optional: success result
-  "error": { "code": "...", "message": "..." }, // Optional: error information
+  "requestId": 123,
+  "result": { "foo": "bar" },
+  "error": { "code": "ErrorCode", "message": "Error description" }
 }
 ```
 
@@ -104,15 +104,15 @@ Authenticates the connection.
 
 Subscribes the connection to a channel.
 
-**Params**: `{"channelId": "channel-name"}`
+**Params**: `{"channel": "channel-name"}`
 
-**Response**: `{"subscriptionId": "...", "timestamp": "..."}`
+**Response**: `{"subscriptionId": "sub-123", "timestamp": "2023-01-01T12:00:00Z"}`
 
 #### `unsubscribe`
 
 Unsubscribes the connection from a channel.
 
-**Params**: `{"channelId": "channel-name"}`
+**Params**: `{"channel": "channel-name"}`
 
 **Response**: `{"success": true}`
 
@@ -120,9 +120,9 @@ Unsubscribes the connection from a channel.
 
 Publishes a message to a channel. Requires the `publish` scope.
 
-**Params**: `{"channelId": "channel-name", "payload": { ... }}`
+**Params**: `{"channel": "channel-name", "event": "event-name", "payload": {"key": "value"}}`
 
-**Response**: `{"id": "...", "createTime": "...", ...}`
+**Response**: `{"id": "msg-123", "createTime": "2023-01-01T12:00:00Z"}`
 
 #### `heartbeat`
 
@@ -130,7 +130,7 @@ Keeps the connection alive.
 
 **Params**: (none)
 
-**Response**: `{"timestamp": "..."}`
+**Response**: `{"timestamp": "2023-01-01T12:00:00Z"}`
 
 ### Notifications
 
@@ -138,7 +138,7 @@ Keeps the connection alive.
 
 Sent by the server to clients when a message is published to a channel they are subscribed to.
 
-**Params**: `{"id": "...", "createTime": "...", "channelId": "...", "payload": { ... }}`
+**Params**: `{"id": "msg-123", "createTime": "2023-01-01T12:00:00Z", "channel": "channel-name", "event": "event-name", "payload": {"key": "value"}}`
 
 ## REST API
 
@@ -150,9 +150,9 @@ Publishes a message to a channel.
 
 **Headers**: `Authorization: Bearer your-api-key`
 
-**Body**: `{"channelId": "channel-name", "payload": { ... }}`
+**Body**: `{"channel": "channel-name", "event": "event-name", "payload": {"key": "value"}}`
 
-**Response**: `{"id": "...", "createTime": "...", ...}`
+**Response**: `{"id": "msg-123", "createTime": "2023-01-01T12:00:00Z"}`
 
 ## Error Handling
 
@@ -160,10 +160,10 @@ Errors are returned in the `error` field of the response message.
 
 **Error Object**:
 
-```jsonc
+```json
 {
   "code": "ErrorCode",
-  "message": "Error description",
+  "message": "Error description"
 }
 ```
 
