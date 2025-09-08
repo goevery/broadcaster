@@ -14,26 +14,26 @@ type Router struct {
 	logger *zap.Logger
 
 	heartbeatHandler handler.HeartbeatHandlerInterface
-	joinHandler      handler.JoinHandlerInterface
-	leaveHandler     handler.LeaveHandlerInterface
-	pushHandler      handler.PushHandlerInterface
+	subscribeHandler      handler.SubscribeHandlerInterface
+	unsubscribeHandler     handler.UnsubscribeHandlerInterface
+	publishHandler      handler.PublishHandlerInterface
 	authHandler      handler.AuthHandlerInterface
 }
 
 func NewRouter(
 	logger *zap.Logger,
 	heartbeatHandler handler.HeartbeatHandlerInterface,
-	joinHandler handler.JoinHandlerInterface,
-	leaveHandler handler.LeaveHandlerInterface,
-	pushHandler handler.PushHandlerInterface,
+	subscribeHandler handler.SubscribeHandlerInterface,
+	unsubscribeHandler handler.UnsubscribeHandlerInterface,
+	publishHandler handler.PublishHandlerInterface,
 	authHandler handler.AuthHandlerInterface,
 ) *Router {
 	return &Router{
 		logger,
 		heartbeatHandler,
-		joinHandler,
-		leaveHandler,
-		pushHandler,
+		subscribeHandler,
+		unsubscribeHandler,
+		publishHandler,
 		authHandler,
 	}
 }
@@ -91,27 +91,27 @@ func (r *Router) Handle(ctx context.Context, request handler.Request) (any, erro
 			return nil, err
 		}
 		return r.authHandler.Handle(ctx, authReq)
-	case "join":
-		var joinReq handler.JoinRequest
-		if err := decodeParams(request.Params, &joinReq); err != nil {
+	case "subscribe":
+		var subscribeReq handler.SubscribeRequest
+		if err := decodeParams(request.Params, &subscribeReq); err != nil {
 			return nil, err
 		}
 
-		return r.joinHandler.Handle(ctx, joinReq)
-	case "leave":
-		var leaveReq handler.LeaveRequest
-		if err := decodeParams(request.Params, &leaveReq); err != nil {
+		return r.subscribeHandler.Handle(ctx, subscribeReq)
+	case "unsubscribe":
+		var unsubscribeReq handler.UnsubscribeRequest
+		if err := decodeParams(request.Params, &unsubscribeReq); err != nil {
 			return nil, err
 		}
 
-		return r.leaveHandler.Handle(ctx, leaveReq)
-	case "push":
-		var pushReq handler.PushRequest
-		if err := decodeParams(request.Params, &pushReq); err != nil {
+		return r.unsubscribeHandler.Handle(ctx, unsubscribeReq)
+	case "publish":
+		var publishReq handler.PublishRequest
+		if err := decodeParams(request.Params, &publishReq); err != nil {
 			return nil, err
 		}
 
-		return r.pushHandler.Handle(ctx, pushReq)
+		return r.publishHandler.Handle(ctx, publishReq)
 	default:
 		return nil, ierr.New(ierr.ErrorCodeNotFound, errors.New("method not found: "+request.Method))
 	}

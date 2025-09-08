@@ -23,12 +23,12 @@ func TestWebSocketServer(t *testing.T) {
 	authenticator := auth.NewAuthenticator("test-secret", []string{"test-api-key"})
 	channelIdValidator := handler.NewChannelIdValidator()
 	heartbeatHandler := handler.NewHeartbeatHandler()
-	joinHandler := handler.NewJoinHandler(channelIdValidator, registry)
-	leaveHandler := handler.NewLeaveHandler(channelIdValidator, registry)
-	pushHandler := handler.NewPushHandler(channelIdValidator, registry)
+	subscribeHandler := handler.NewSubscribeHandler(channelIdValidator, registry)
+	unsubscribeHandler := handler.NewUnsubscribeHandler(channelIdValidator, registry)
+	publishHandler := handler.NewPublishHandler(channelIdValidator, registry)
 	authHandler := handler.NewAuthHandler(authenticator)
 
-	router := NewRouter(logger, heartbeatHandler, joinHandler, leaveHandler, pushHandler, authHandler)
+	router := NewRouter(logger, heartbeatHandler, subscribeHandler, unsubscribeHandler, publishHandler, authHandler)
 	upgrader := &websocket.Upgrader{}
 
 	wsServer := NewWebSocketServer(logger, upgrader, registry, router)
@@ -74,20 +74,20 @@ func TestWebSocketServer(t *testing.T) {
 		assert.NoError(t, err)
 		assert.Equal(t, true, authResponsePayload.Success)
 
-		// Join
-		joinRequest := json.RawMessage(`{"id":2,"method":"join","params":{"channelId":"test-channel"}}`)
-		err = conn.WriteJSON(joinRequest)
+		// Subscribe
+		subscribeRequest := json.RawMessage(`{"id":2,"method":"subscribe","params":{"channelId":"test-channel"}}`)
+		err = conn.WriteJSON(subscribeRequest)
 		assert.NoError(t, err)
 
-		var joinResponse handler.Response
+		var subscribeResponse handler.Response
 		conn.SetReadDeadline(time.Now().Add(time.Second))
-		err = conn.ReadJSON(&joinResponse)
+		err = conn.ReadJSON(&subscribeResponse)
 		assert.NoError(t, err)
 
-		var joinResponsePayload handler.JoinResponse
-		err = json.Unmarshal(*joinResponse.Result, &joinResponsePayload)
+		var subscribeResponsePayload handler.SubscribeResponse
+		err = json.Unmarshal(*subscribeResponse.Result, &subscribeResponsePayload)
 		assert.NoError(t, err)
-		assert.NotEmpty(t, joinResponsePayload.SubscriptionId)
+		assert.NotEmpty(t, subscribeResponsePayload.SubscriptionId)
 
 		// Server sends a message
 		msg := broadcaster.Message{ChannelId: "test-channel", Payload: "test-payload"}
@@ -123,24 +123,24 @@ func TestWebSocketServer(t *testing.T) {
 		assert.True(t, websocket.IsCloseError(err, websocket.CloseNoStatusReceived))
 	})
 
-	t.Run("join without auth", func(t *testing.T) {
+	t.Run("subscribe without auth", func(t *testing.T) {
 		conn, _, err := websocket.DefaultDialer.Dial(u.String(), nil)
 		assert.NoError(t, err)
 		defer conn.Close()
 
-		joinRequest := json.RawMessage(`{"id":1,"method":"join","params":{"channelId":"test-channel"}}`)
-		err = conn.WriteJSON(joinRequest)
+		subscribeRequest := json.RawMessage(`{"id":1,"method":"subscribe","params":{"channelId":"test-channel"}}`)
+		err = conn.WriteJSON(subscribeRequest)
 		assert.NoError(t, err)
 
-		var joinResponse handler.Response
+		var subscribeResponse handler.Response
 		conn.SetReadDeadline(time.Now().Add(time.Second))
-		err = conn.ReadJSON(&joinResponse)
+		err = conn.ReadJSON(&subscribeResponse)
 		assert.NoError(t, err)
-		assert.NotNil(t, joinResponse.Error)
-		assert.Equal(t, "Unauthenticated", string(joinResponse.Error.Code))
+		assert.NotNil(t, subscribeResponse.Error)
+		assert.Equal(t, "Unauthenticated", string(subscribeResponse.Error.Code))
 	})
 
-	t.Run("join unauthorized channel", func(t *testing.T) {
+	t.Run("subscribe unauthorized channel", func(t *testing.T) {
 		conn, _, err := websocket.DefaultDialer.Dial(u.String(), nil)
 		assert.NoError(t, err)
 		defer conn.Close()
@@ -167,20 +167,20 @@ func TestWebSocketServer(t *testing.T) {
 		err = conn.ReadJSON(&authResponse)
 		assert.NoError(t, err)
 
-		// Join
-		joinRequest := json.RawMessage(`{"id":2,"method":"join","params":{"channelId":"test-channel"}}`)
-		err = conn.WriteJSON(joinRequest)
+		// Subscribe
+		subscribeRequest := json.RawMessage(`{"id":2,"method":"subscribe","params":{"channelId":"test-channel"}}`)
+		err = conn.WriteJSON(subscribeRequest)
 		assert.NoError(t, err)
 
-		var joinResponse handler.Response
+		var subscribeResponse handler.Response
 		conn.SetReadDeadline(time.Now().Add(time.Second))
-		err = conn.ReadJSON(&joinResponse)
+		err = conn.ReadJSON(&subscribeResponse)
 		assert.NoError(t, err)
-		assert.NotNil(t, joinResponse.Error)
-		assert.Equal(t, "Unauthenticated", string(joinResponse.Error.Code))
+		assert.NotNil(t, subscribeResponse.Error)
+		assert.Equal(t, "Unauthenticated", string(subscribeResponse.Error.Code))
 	})
 
-	t.Run("push message with publish scope", func(t *testing.T) {
+	t.Run("publish message with publish scope", func(t *testing.T) {
 		conn, _, err := websocket.DefaultDialer.Dial(u.String(), nil)
 		assert.NoError(t, err)
 		defer conn.Close()
@@ -212,19 +212,19 @@ func TestWebSocketServer(t *testing.T) {
 		assert.NoError(t, err)
 		assert.Equal(t, true, authResponsePayload.Success)
 
-		// Push
-		pushRequest := json.RawMessage(`{"id":2,"method":"push","params":{"channelId":"test-channel","payload":{"foo":"bar"}}}`)
-		err = conn.WriteJSON(pushRequest)
+		// Publish
+		publishRequest := json.RawMessage(`{"id":2,"method":"publish","params":{"channelId":"test-channel","payload":{"foo":"bar"}}}`)
+		err = conn.WriteJSON(publishRequest)
 		assert.NoError(t, err)
 
-		var pushResponse handler.Response
+		var publishResponse handler.Response
 		conn.SetReadDeadline(time.Now().Add(time.Second))
-		err = conn.ReadJSON(&pushResponse)
+		err = conn.ReadJSON(&publishResponse)
 		assert.NoError(t, err)
-		assert.Nil(t, pushResponse.Error)
+		assert.Nil(t, publishResponse.Error)
 	})
 
-	t.Run("join without subscribe scope", func(t *testing.T) {
+	t.Run("subscribe without subscribe scope", func(t *testing.T) {
 		conn, _, err := websocket.DefaultDialer.Dial(u.String(), nil)
 		assert.NoError(t, err)
 		defer conn.Close()
@@ -256,20 +256,20 @@ func TestWebSocketServer(t *testing.T) {
 		assert.NoError(t, err)
 		assert.Equal(t, true, authResponsePayload.Success)
 
-		// Join should fail without subscribe scope
-		joinRequest := json.RawMessage(`{"id":2,"method":"join","params":{"channelId":"test-channel"}}`)
-		err = conn.WriteJSON(joinRequest)
+		// Subscribe should fail without subscribe scope
+		subscribeRequest := json.RawMessage(`{"id":2,"method":"subscribe","params":{"channelId":"test-channel"}}`)
+		err = conn.WriteJSON(subscribeRequest)
 		assert.NoError(t, err)
 
-		var joinResponse handler.Response
+		var subscribeResponse handler.Response
 		conn.SetReadDeadline(time.Now().Add(time.Second))
-		err = conn.ReadJSON(&joinResponse)
+		err = conn.ReadJSON(&subscribeResponse)
 		assert.NoError(t, err)
-		assert.NotNil(t, joinResponse.Error)
-		assert.Equal(t, "PermissionDenied", string(joinResponse.Error.Code))
+		assert.NotNil(t, subscribeResponse.Error)
+		assert.Equal(t, "PermissionDenied", string(subscribeResponse.Error.Code))
 	})
 
-	t.Run("push message without publish scope", func(t *testing.T) {
+	t.Run("publish message without publish scope", func(t *testing.T) {
 		conn, _, err := websocket.DefaultDialer.Dial(u.String(), nil)
 		assert.NoError(t, err)
 		defer conn.Close()
@@ -301,17 +301,17 @@ func TestWebSocketServer(t *testing.T) {
 		assert.NoError(t, err)
 		assert.Equal(t, true, authResponsePayload.Success)
 
-		// Push should fail without publish scope
-		pushRequest := json.RawMessage(`{"id":2,"method":"push","params":{"channelId":"test-channel","payload":{"foo":"bar"}}}`)
-		err = conn.WriteJSON(pushRequest)
+		// Publish should fail without publish scope
+		publishRequest := json.RawMessage(`{"id":2,"method":"publish","params":{"channelId":"test-channel","payload":{"foo":"bar"}}}`)
+		err = conn.WriteJSON(publishRequest)
 		assert.NoError(t, err)
 
-		var pushResponse handler.Response
+		var publishResponse handler.Response
 		conn.SetReadDeadline(time.Now().Add(time.Second))
-		err = conn.ReadJSON(&pushResponse)
+		err = conn.ReadJSON(&publishResponse)
 
 		assert.NoError(t, err)
-		assert.NotNil(t, pushResponse.Error)
-		assert.Equal(t, "PermissionDenied", string(pushResponse.Error.Code))
+		assert.NotNil(t, publishResponse.Error)
+		assert.Equal(t, "PermissionDenied", string(publishResponse.Error.Code))
 	})
 }

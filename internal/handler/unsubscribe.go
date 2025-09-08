@@ -7,47 +7,47 @@ import (
 	"github.com/goevery/broadcaster/internal/broadcaster"
 )
 
-type LeaveRequest struct {
+type UnsubscribeRequest struct {
 	ChannelId string `json:"channelId"`
 }
 
-type LeaveResponse struct {
+type UnsubscribeResponse struct {
 	Success bool `json:"success"`
 }
 
-type LeaveHandlerInterface interface {
-	Handle(ctx context.Context, req LeaveRequest) (LeaveResponse, error)
+type UnsubscribeHandlerInterface interface {
+	Handle(ctx context.Context, req UnsubscribeRequest) (UnsubscribeResponse, error)
 }
 
-type LeaveHandler struct {
+type UnsubscribeHandler struct {
 	channelIdValidator   *ChannelIdValidator
 	subscriptionRegistry broadcaster.Registry
 }
 
-func NewLeaveHandler(
+func NewUnsubscribeHandler(
 	channelIdValidator *ChannelIdValidator,
 	subscriptionRegistry broadcaster.Registry,
-) *LeaveHandler {
-	return &LeaveHandler{
+) *UnsubscribeHandler {
+	return &UnsubscribeHandler{
 		channelIdValidator,
 		subscriptionRegistry,
 	}
 }
 
-func (h *LeaveHandler) Handle(ctx context.Context, req LeaveRequest) (LeaveResponse, error) {
+func (h *UnsubscribeHandler) Handle(ctx context.Context, req UnsubscribeRequest) (UnsubscribeResponse, error) {
 	err := h.channelIdValidator.Validate(req.ChannelId)
 	if err != nil {
-		return LeaveResponse{}, err
+		return UnsubscribeResponse{}, err
 	}
 
 	connection, ok := broadcaster.ConnectionFromContext(ctx)
 	if !ok {
-		return LeaveResponse{}, errors.New("connection not found in context")
+		return UnsubscribeResponse{}, errors.New("connection not found in context")
 	}
 
 	h.subscriptionRegistry.Unsubscribe(req.ChannelId, connection.Id)
 
-	return LeaveResponse{
+	return UnsubscribeResponse{
 		Success: true,
 	}, nil
 }

@@ -15,14 +15,14 @@ import (
 	"go.uber.org/zap"
 )
 
-func TestRESTServer_Push(t *testing.T) {
+func TestRESTServer_Publish(t *testing.T) {
 	logger, _ := zap.NewDevelopment()
 	authenticator := auth.NewAuthenticator("test-secret", []string{"test-api-key"})
 	registry := broadcaster.NewMockRegistry(t)
 	channelIdValidator := handler.NewChannelIdValidator()
-	pushHandler := handler.NewPushHandler(channelIdValidator, registry)
+	publishHandler := handler.NewPublishHandler(channelIdValidator, registry)
 
-	restServer := NewRESTServer(logger, pushHandler, authenticator)
+	restServer := NewRESTServer(logger, publishHandler, authenticator)
 
 	router := mux.NewRouter()
 	restServer.Register(router)
@@ -37,7 +37,7 @@ func TestRESTServer_Push(t *testing.T) {
 			return msg.ChannelId == "test-channel" && msg.Payload == "test-payload"
 		})).Return().Once()
 
-		req, _ := http.NewRequest("POST", server.URL+"/push", bytes.NewBuffer([]byte(body)))
+		req, _ := http.NewRequest("POST", server.URL+"/publish", bytes.NewBuffer([]byte(body)))
 		req.Header.Set("Authorization", "Bearer test-api-key")
 		req.Header.Set("Content-Type", "application/json")
 
@@ -51,7 +51,7 @@ func TestRESTServer_Push(t *testing.T) {
 	t.Run("invalid api key", func(t *testing.T) {
 		body := `{"channelId":"test-channel","payload":"test-payload"}`
 
-		req, _ := http.NewRequest("POST", server.URL+"/push", bytes.NewBuffer([]byte(body)))
+		req, _ := http.NewRequest("POST", server.URL+"/publish", bytes.NewBuffer([]byte(body)))
 		req.Header.Set("Authorization", "Bearer invalid-api-key")
 		req.Header.Set("Content-Type", "application/json")
 

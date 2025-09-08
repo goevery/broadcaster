@@ -14,18 +14,18 @@ import (
 type RESTServer struct {
 	logger *zap.Logger
 
-	pushHandler   *handler.PushHandler
+	publishHandler   *handler.PublishHandler
 	authenticator *auth.Authenticator
 }
 
 func NewRESTServer(
 	logger *zap.Logger,
-	pushHandler *handler.PushHandler,
+	publishHandler *handler.PublishHandler,
 	authenticator *auth.Authenticator,
 ) *RESTServer {
 	return &RESTServer{
 		logger,
-		pushHandler,
+		publishHandler,
 		authenticator,
 	}
 }
@@ -71,25 +71,25 @@ func (s *RESTServer) authenticationMiddleware(next http.Handler) http.Handler {
 }
 
 func (s *RESTServer) Register(router *mux.Router) {
-	pushRouter := router.Methods("POST", "OPTIONS").Subrouter()
-	pushRouter.Use(s.corsMiddleware, s.authenticationMiddleware)
-	pushRouter.HandleFunc("/push", func(w http.ResponseWriter, r *http.Request) {
-		var pushRequest handler.PushRequest
-		err := json.NewDecoder(r.Body).Decode(&pushRequest)
+	publishRouter := router.Methods("POST", "OPTIONS").Subrouter()
+	publishRouter.Use(s.corsMiddleware, s.authenticationMiddleware)
+	publishRouter.HandleFunc("/publish", func(w http.ResponseWriter, r *http.Request) {
+		var publishRequest handler.PublishRequest
+		err := json.NewDecoder(r.Body).Decode(&publishRequest)
 		if err != nil {
 			http.Error(w, "invalid request body", http.StatusBadRequest)
 			return
 		}
 
-		pushResponse, err := s.pushHandler.Handle(r.Context(), pushRequest)
+		publishResponse, err := s.publishHandler.Handle(r.Context(), publishRequest)
 		if err != nil {
-			s.logger.Error("failed to handle push request", zap.Error(err))
-			http.Error(w, "failed to handle push request", http.StatusInternalServerError)
+			s.logger.Error("failed to handle publish request", zap.Error(err))
+			http.Error(w, "failed to handle publish request", http.StatusInternalServerError)
 			return
 		}
 
 		w.Header().Set("Content-Type", "application/json")
-		err = json.NewEncoder(w).Encode(pushResponse)
+		err = json.NewEncoder(w).Encode(publishResponse)
 		if err != nil {
 			http.Error(w, "failed to encode response", http.StatusInternalServerError)
 			return

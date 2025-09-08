@@ -153,7 +153,7 @@
                   class="w-4 h-4"
                 ></i>
                 <span
-                  x-text="connected ? 'Disconnect' : authenticated ? 'Join Channel' : 'Authenticate'"
+                  x-text="connected ? 'Unsubscribe' : authenticated ? 'Subscribe' : 'Authenticate'"
                 ></span>
               </button>
             </div>
@@ -246,9 +246,9 @@
 
           handleConnectionAction() {
             if (this.connected) {
-              this.disconnect();
+              this.unsubscribeFromChannel();
             } else if (this.authenticated) {
-              this.joinChannel();
+              this.subscribeToChannel();
             } else {
               this.authenticate();
             }
@@ -389,7 +389,7 @@
             return new Uint8Array(signature);
           },
 
-          joinChannel() {
+          subscribeToChannel() {
             if (!this.authenticated || !this.channelId.trim()) {
               return;
             }
@@ -398,16 +398,16 @@
               ? this.messages[this.messages.length - 1].id
               : "";
 
-            this.sendRequest("join", {
+            this.sendRequest("subscribe", {
               channelId: this.channelId,
               lastSeenMessageId: lastSeenMessageId,
             })
               .then((response) => {
                 if (response.error) {
-                  console.error("Join failed:", response.error);
-                  alert(`Failed to join channel: ${response.error.message}`);
+                  console.error("Subscribe failed:", response.error);
+                  alert(`Failed to subscribe to channel: ${response.error.message}`);
                 } else {
-                  console.log("Successfully joined channel");
+                  console.log("Successfully subscribed to channel");
                   this.connected = true;
 
                   // Add history messages if any
@@ -419,8 +419,32 @@
                 }
               })
               .catch((error) => {
-                console.error("Join error:", error);
-                alert(`Error joining channel: ${error}`);
+                console.error("Subscribe error:", error);
+                alert(`Error subscribing to channel: ${error}`);
+              });
+          },
+          unsubscribeFromChannel() {
+            if (!this.connected) {
+              return;
+            }
+
+            this.sendRequest("unsubscribe", {
+              channelId: this.channelId,
+            })
+              .then((response) => {
+                if (response.error) {
+                  console.error("Unsubscribe failed:", response.error);
+                  alert(`Failed to unsubscribe from channel: ${response.error.message}`);
+                } else {
+                  console.log("Successfully unsubscribed from channel");
+                  this.connected = false;
+                  this.messages = [];
+                  this.$nextTick(() => lucide.createIcons());
+                }
+              })
+              .catch((error) => {
+                console.error("Unsubscribe error:", error);
+                alert(`Error unsubscribing from channel: ${error}`);
               });
           },
           sendRequest(method, params, expectReply = true) {
@@ -500,7 +524,7 @@
               const payload = JSON.parse(this.messagePayload);
 
               const response = await fetch(
-                "http://localhost:8000/broadcaster/push",
+                "http://localhost:8000/broadcaster/publish",
                 {
                   method: "POST",
                   headers: {

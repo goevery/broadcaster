@@ -11,31 +11,31 @@ import (
 	gonanoid "github.com/matoous/go-nanoid/v2"
 )
 
-type PushRequest struct {
+type PublishRequest struct {
 	ChannelId string `json:"channelId"`
 	Payload   any    `json:"payload"`
 }
 
-type PushHandlerInterface interface {
-	Handle(ctx context.Context, req PushRequest) (broadcaster.Message, error)
+type PublishHandlerInterface interface {
+	Handle(ctx context.Context, req PublishRequest) (broadcaster.Message, error)
 }
 
-type PushHandler struct {
+type PublishHandler struct {
 	channelIdValidator   *ChannelIdValidator
 	subscriptionRegistry broadcaster.Registry
 }
 
-func NewPushHandler(
+func NewPublishHandler(
 	channelIdValidator *ChannelIdValidator,
 	subscriptionRegistry broadcaster.Registry,
-) *PushHandler {
-	return &PushHandler{
+) *PublishHandler {
+	return &PublishHandler{
 		channelIdValidator,
 		subscriptionRegistry,
 	}
 }
 
-func (h *PushHandler) Handle(ctx context.Context, req PushRequest) (broadcaster.Message, error) {
+func (h *PublishHandler) Handle(ctx context.Context, req PublishRequest) (broadcaster.Message, error) {
 	var authentication *auth.Authentication
 
 	connection, ok := broadcaster.ConnectionFromContext(ctx)

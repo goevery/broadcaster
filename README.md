@@ -8,7 +8,7 @@ The protocol is built on top of WebSockets and provides a simple JSON-RPC-like i
 
 **Key Features**:
 
-- **Real-time messaging**: Push messages to clients in real-time.
+- **Real-time messaging**: Publish messages to clients in real-time.
 - **Channel-based communication**: Organize your communication into channels.
 - **Secure**: Authenticate clients with JWT and servers with API Keys.
 - **Scalable**: Designed to handle a large number of concurrent connections.
@@ -85,9 +85,9 @@ The protocol uses a JSON-RPC-inspired message format.
 
 1.  **Establish WebSocket connection**.
 2.  **Authenticate** with a JWT.
-3.  **Join** desired channels.
+3.  **Subscribe** to desired channels.
 4.  **Send/receive** messages.
-5.  **Leave** channels when no longer needed.
+5.  **Unsubscribe** from channels when no longer needed.
 6.  **Close** the WebSocket connection.
 
 ### Methods
@@ -100,7 +100,7 @@ Authenticates the connection.
 
 **Response**: `{"success": true}`
 
-#### `join`
+#### `subscribe`
 
 Subscribes the connection to a channel.
 
@@ -108,7 +108,7 @@ Subscribes the connection to a channel.
 
 **Response**: `{"subscriptionId": "...", "timestamp": "..."}`
 
-#### `leave`
+#### `unsubscribe`
 
 Unsubscribes the connection from a channel.
 
@@ -116,7 +116,7 @@ Unsubscribes the connection from a channel.
 
 **Response**: `{"success": true}`
 
-#### `push`
+#### `publish`
 
 Publishes a message to a channel. Requires the `publish` scope.
 
@@ -142,7 +142,7 @@ Sent by the server to clients when a message is published to a channel they are 
 
 ## REST API
 
-### `/push`
+### `/publish`
 
 Publishes a message to a channel.
 
@@ -180,7 +180,7 @@ Errors are returned in the `error` field of the response message.
 ## Authorization Model
 
 - **WebSocket**: Clients must authenticate with a JWT. The `scope` claim in the JWT determines what actions the client can perform.
-  - `subscribe`: Allows the client to join channels and receive messages.
+  - `subscribe`: Allows the client to subscribe to channels and receive messages.
   - `publish`: Allows the client to publish messages to channels.
 - **REST API**: Servers must authenticate with an API Key to publish messages.
 

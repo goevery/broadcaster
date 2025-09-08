@@ -41,17 +41,17 @@ func NewApp(logger *zap.Logger, settings Settings) *App {
 	registry := broadcaster.NewInMemoryRegistry(logger)
 
 	heartbeatHandler := handler.NewHeartbeatHandler()
-	joinHandler := handler.NewJoinHandler(channelIdValidator, registry)
-	leaveHandler := handler.NewLeaveHandler(channelIdValidator, registry)
-	pushHandler := handler.NewPushHandler(channelIdValidator, registry)
+	subscribeHandler := handler.NewSubscribeHandler(channelIdValidator, registry)
+	unsubscribeHandler := handler.NewUnsubscribeHandler(channelIdValidator, registry)
+	publishHandler := handler.NewPublishHandler(channelIdValidator, registry)
 	authHandler := handler.NewAuthHandler(authenticator)
 
 	router := server.NewRouter(
 		logger,
 		heartbeatHandler,
-		joinHandler,
-		leaveHandler,
-		pushHandler,
+		subscribeHandler,
+		unsubscribeHandler,
+		publishHandler,
 		authHandler,
 	)
 
@@ -63,7 +63,7 @@ func NewApp(logger *zap.Logger, settings Settings) *App {
 	)
 	restServer := server.NewRESTServer(
 		logger,
-		pushHandler,
+		publishHandler,
 		authenticator,
 	)
 
