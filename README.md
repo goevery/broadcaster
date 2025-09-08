@@ -104,7 +104,7 @@ Authenticates the connection.
 
 Subscribes the connection to a channel.
 
-**Params**: `{"channelId": "channel-name"}`
+**Params**: `{"channel": "channel-name"}`
 
 **Response**: `{"subscriptionId": "...", "timestamp": "..."}`
 
@@ -112,7 +112,7 @@ Subscribes the connection to a channel.
 
 Unsubscribes the connection from a channel.
 
-**Params**: `{"channelId": "channel-name"}`
+**Params**: `{"channel": "channel-name"}`
 
 **Response**: `{"success": true}`
 
@@ -120,7 +120,7 @@ Unsubscribes the connection from a channel.
 
 Publishes a message to a channel. Requires the `publish` scope.
 
-**Params**: `{"channelId": "channel-name", "payload": { ... }}`
+**Params**: `{"channel": "channel-name", "event": "event-name", "payload": { ... }}`
 
 **Response**: `{"id": "...", "createTime": "...", ...}`
 
@@ -138,7 +138,7 @@ Keeps the connection alive.
 
 Sent by the server to clients when a message is published to a channel they are subscribed to.
 
-**Params**: `{"id": "...", "createTime": "...", "channelId": "...", "payload": { ... }}`
+**Params**: `{"id": "...", "createTime": "...", "channel": "...", "event": "...", "payload": { ... }}`
 
 ## REST API
 
@@ -150,7 +150,7 @@ Publishes a message to a channel.
 
 **Headers**: `Authorization: Bearer your-api-key`
 
-**Body**: `{"channelId": "channel-name", "payload": { ... }}`
+**Body**: `{"channel": "channel-name", "event": "event-name", "payload": { ... }}`
 
 **Response**: `{"id": "...", "createTime": "...", ...}`
 
