@@ -12,7 +12,16 @@ type Connection struct {
 	Send chan Message
 
 	mu             sync.RWMutex
+	Seq            uint64
 	authentication *auth.Authentication
+}
+
+func (c *Connection) NextSeq() uint64 {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	c.Seq++
+	return c.Seq
 }
 
 func (c *Connection) SetAuthentication(auth *auth.Authentication) {
