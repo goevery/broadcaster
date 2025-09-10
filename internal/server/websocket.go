@@ -52,6 +52,7 @@ func (s *WebSocketServer) Register(router *mux.Router) {
 		broadcasterConn := &broadcaster.Connection{
 			Id:   connectionId,
 			Send: broascasterChannel,
+			Seq:  0,
 		}
 
 		s.registry.Connect(broadcasterConn)

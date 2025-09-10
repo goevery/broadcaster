@@ -69,8 +69,11 @@ func (r *InMemoryRegistry) Broadcast(message Message) {
 	var staleConnectionIds []string
 
 	for _, connection := range connections {
+		msg := message
+		msg.Seq = connection.NextSeq()
+
 		select {
-		case connection.Send <- message:
+		case connection.Send <- msg:
 		default:
 			r.logger.Warn("connection send channel is full, closing connection",
 				zap.String("connectionId", connection.Id))

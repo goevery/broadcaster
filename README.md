@@ -136,9 +136,9 @@ Keeps the connection alive.
 
 #### `broadcast`
 
-Sent by the server to clients when a message is published to a channel they are subscribed to.
+Sent by the server to clients when a message is published to a channel they are subscribed to. The `seq` field is an incrementing integer for each subscription, which can be used to detect missed events.
 
-**Params**: `{"id": "msg-123", "createTime": "2023-01-01T12:00:00Z", "channel": "channel-name", "event": "event-name", "payload": {"key": "value"}}`
+**Params**: `{"id": "msg-123", "seq": 1, "createTime": "2023-01-01T12:00:00Z", "channel": "channel-name", "event": "event-name", "payload": {"key": "value"}}`
 
 ## REST API
 
